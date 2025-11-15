@@ -8,22 +8,43 @@ Determine optimal locations for Meta's next data center (and other energy-intens
 
 ### Features:
 - ✅ **82,071 substations** analyzed (substation-level granularity)
+- ✅ **12,612 power plants** from eGRID integrated
+- ✅ **12-factor scoring model** covering grid, economics, and co-location
 - ✅ **Transmission line capacity** and infrastructure
-- ✅ **Generation capacity** within 100km
-- ✅ **Renewable energy** availability
-- ✅ **Emissions** analysis (CO2 intensity)
-- ✅ **Multi-criteria scoring** model
+- ✅ **Distance to actual power plants**
+- ✅ **Plant-level emissions** (actual CO2 rates)
+- ✅ **Plant-level renewable energy** (actual generation mix)
+- ✅ **Energy costs** (retail electricity prices) ← NEW!
+- ✅ **Congestion risk** analysis ← NEW!
+- ✅ **Solar/wind co-location potential** ← NEW!
 - ✅ **Interactive visualizations** (Plotly + Matplotlib)
 
-### Scoring Model:
+### Comprehensive Scoring Model (12 Factors!):
 ```
-Data Center Score = 
-  Transmission Capacity (25%) +
-  Generation Capacity (20%) +
-  Renewable Energy (20%) +
-  Low Emissions (20%) +
-  Grid Infrastructure (15%)
+Grid Infrastructure (30%):
+  • Transmission Capacity (12%)
+  • Generation Capacity (10%)
+  • Grid Infrastructure (8%)
+
+Plant-Level eGRID Data (25%):
+  • Plant Proximity (10%)
+  • eGRID Renewables (8%)
+  • eGRID Emissions (7%)
+
+Economic Factors (20%): ← NEW!
+  • Energy Costs (10%)
+  • Congestion Risk (5%)
+  • Transmission Cost (5%)
+
+Co-Location Potential (15%): ← NEW!
+  • Solar Potential (8%)
+  • Wind Potential (7%)
+
+Sustainability (10%):
+  • Plant Density (10%)
 ```
+
+**Covers 8 out of 10 required parameters (80%)!**
 
 ## Data Sources
 1. **usa_bus_features_2016.csv** - PowerSimData transmission substations (82K+ substations)
@@ -42,9 +63,13 @@ Top 5 locations provide:
 - CO2 intensity
 
 ## Documentation
+- **COMPREHENSIVE_MODEL_SUMMARY.md** - LATEST! 12-factor model details ← READ THIS FIRST!
+- **EGRID_INTEGRATION_SUMMARY.md** - eGRID data integration details
+- **METRICS_COVERAGE.md** - What metrics are covered vs missing (80% coverage!)
 - **GRANULARITY_SUMMARY.md** - Explains substation-level precision
 - **TRANSMISSION_DATA_SUMMARY.md** - PowerSimData capabilities
 - **MAP_VISUALIZATION_GUIDE.md** - How to use visualizations
+- **STATE_CODE_EXPLANATION.md** - Why zones are used instead of state codes
 
 ## How to Run
 1. Open `siting_with_transmission.ipynb` in Jupyter/Cursor
