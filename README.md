@@ -8,43 +8,56 @@ Determine optimal locations for Meta's next data center (and other energy-intens
 
 ### Features:
 - ✅ **82,071 substations** analyzed (substation-level granularity)
-- ✅ **12,612 power plants** from eGRID integrated
-- ✅ **12-factor scoring model** covering grid, economics, and co-location
-- ✅ **Transmission line capacity** and infrastructure
-- ✅ **Distance to actual power plants**
-- ✅ **Plant-level emissions** (actual CO2 rates)
-- ✅ **Plant-level renewable energy** (actual generation mix)
-- ✅ **Energy costs** (retail electricity prices) ← NEW!
-- ✅ **Congestion risk** analysis ← NEW!
-- ✅ **Solar/wind co-location potential** ← NEW!
+- ✅ **12,612 power plants** from eGRID (including 93 nuclear plants)
+- ✅ **14-factor SLACK-AWARE scoring model** ← CRITICAL UPDATE!
+- ✅ **⚡ SLACK CAPACITY analysis** ← NEW! Filters for SPARE capacity, not just total
+- ✅ **2GW data center feasibility filter** ← NEW per RWE!
+- ✅ **Capacity factor matching** (nuclear, solar, wind) ← NEW per RWE!
+- ✅ **Cost savings analysis** ($M annual & 10-year) ← NEW per RWE!
+- ✅ **Zone demand filtering** ← NEW! Avoids congested urban areas
+- ✅ **Transmission capacity** (≥2GW for data center)
+- ✅ **Generation capacity** (≥3GW nearby)
+- ✅ **Nuclear proximity** (high capacity factor)
+- ✅ **Energy costs** with $ quantification
+- ✅ **Co-location potential** (solar + wind + storage)
 - ✅ **Interactive visualizations** (Plotly + Matplotlib)
 
-### Comprehensive Scoring Model (12 Factors!):
+### SLACK-AWARE RWE-Aligned Scoring Model (14 Factors!):
 ```
-Grid Infrastructure (30%):
-  • Transmission Capacity (12%)
-  • Generation Capacity (10%)
-  • Grid Infrastructure (8%)
+⚡ Grid SLACK Capacity (30%): ← CRITICAL! Now using SPARE capacity
+  • Transmission SLACK (18%) ← Changed from total capacity
+  • Generation SLACK (12%) ← Changed from total capacity
 
-Plant-Level eGRID Data (25%):
-  • Plant Proximity (10%)
-  • eGRID Renewables (8%)
-  • eGRID Emissions (7%)
+Capacity Factor Matching (20%): ← RWE Priority
+  • Effective Capacity w/ CF (12%)
+  • Nuclear Proximity (8%)
 
-Economic Factors (20%): ← NEW!
+Economic Factors (20%):
   • Energy Costs (10%)
   • Congestion Risk (5%)
   • Transmission Cost (5%)
 
-Co-Location Potential (15%): ← NEW!
-  • Solar Potential (8%)
-  • Wind Potential (7%)
+🏙️ Zone Demand (10%): ← NEW! Avoids congested areas
+  • Lower Demand Score (10%)
 
-Sustainability (10%):
-  • Plant Density (10%)
+Co-Location Potential (12%):
+  • Solar Potential (7%)
+  • Wind Potential (5%)
+
+Plant-Level eGRID (8%):
+  • Plant Proximity (4%)
+  • eGRID Renewables (2%)
+  • Low Emissions (2%)
 ```
 
-**Covers 8 out of 10 required parameters (80%)!**
+**⚡ KEY CHANGE: SLACK vs TOTAL Capacity**
+- Previous: Scored based on total capacity (favored West Coast cities)
+- Updated: Scores based on SPARE capacity after existing demand
+- Result: Avoids congested urban areas, finds locations with genuine spare capacity
+
+**Aligned with RWE advisor priorities!**
+**Filters for 2GW data center feasibility!**
+**Includes cost savings analysis ($M)!**
 
 ## Data Sources
 1. **usa_bus_features_2016.csv** - PowerSimData transmission substations (82K+ substations)
@@ -63,9 +76,9 @@ Top 5 locations provide:
 - CO2 intensity
 
 ## Documentation
-- **COMPREHENSIVE_MODEL_SUMMARY.md** - LATEST! 12-factor model details ← READ THIS FIRST!
-- **EGRID_INTEGRATION_SUMMARY.md** - eGRID data integration details
-- **METRICS_COVERAGE.md** - What metrics are covered vs missing (80% coverage!)
+- **SLACK_CAPACITY_UPDATE.md** - ⚡ CRITICAL! Explains slack capacity analysis ← READ THIS FIRST!
+- **RWE_ALIGNMENT_SUMMARY.md** - RWE-aligned model details
+- **COMPREHENSIVE_MODEL_SUMMARY.md** - 12-factor model baseline
 - **GRANULARITY_SUMMARY.md** - Explains substation-level precision
 - **TRANSMISSION_DATA_SUMMARY.md** - PowerSimData capabilities
 - **MAP_VISUALIZATION_GUIDE.md** - How to use visualizations
