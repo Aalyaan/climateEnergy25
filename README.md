@@ -9,12 +9,14 @@ Determine optimal locations for Meta's next data center (and other energy-intens
 ### Features:
 - ✅ **82,071 substations** analyzed (substation-level granularity)
 - ✅ **12,612 power plants** from eGRID (including 93 nuclear plants)
-- ✅ **14-factor SLACK-AWARE scoring model** ← CRITICAL UPDATE!
-- ✅ **⚡ SLACK CAPACITY analysis** ← NEW! Filters for SPARE capacity, not just total
-- ✅ **2GW data center feasibility filter** ← NEW per RWE!
-- ✅ **Capacity factor matching** (nuclear, solar, wind) ← NEW per RWE!
-- ✅ **Cost savings analysis** ($M annual & 10-year) ← NEW per RWE!
-- ✅ **Zone demand filtering** ← NEW! Avoids congested urban areas
+- ✅ **16-factor COMPREHENSIVE scoring model** ← COMPLETE! All 10 parameters covered
+- ✅ **⚡ SLACK CAPACITY analysis** - Filters for SPARE capacity, not just total
+- ✅ **🏗️ ZONING & LAND AVAILABILITY** ← NEW! Regrid data for buildable sites
+- ✅ **💧 WATER AVAILABILITY** ← NEW! Cooling water for data centers
+- ✅ **2GW data center feasibility filter** - Per RWE requirements
+- ✅ **Capacity factor matching** (nuclear, solar, wind) - Per RWE
+- ✅ **Cost savings analysis** ($M annual & 10-year) - Per RWE
+- ✅ **Zone demand filtering** - Avoids congested urban areas
 - ✅ **Transmission capacity** (≥2GW for data center)
 - ✅ **Generation capacity** (≥3GW nearby)
 - ✅ **Nuclear proximity** (high capacity factor)
@@ -22,38 +24,54 @@ Determine optimal locations for Meta's next data center (and other energy-intens
 - ✅ **Co-location potential** (solar + wind + storage)
 - ✅ **Interactive visualizations** (Plotly + Matplotlib)
 
-### SLACK-AWARE RWE-Aligned Scoring Model (14 Factors!):
+### COMPREHENSIVE 16-Factor Scoring Model:
 ```
-⚡ Grid SLACK Capacity (30%): ← CRITICAL! Now using SPARE capacity
-  • Transmission SLACK (18%) ← Changed from total capacity
-  • Generation SLACK (12%) ← Changed from total capacity
+⚡ Grid SLACK Capacity (25%): ← CRITICAL! Uses SPARE capacity
+  • Transmission SLACK (15%)
+  • Generation SLACK (10%)
 
-Capacity Factor Matching (20%): ← RWE Priority
-  • Effective Capacity w/ CF (12%)
-  • Nuclear Proximity (8%)
+Capacity Factor Matching (18%): ← RWE Priority
+  • Effective Capacity w/ CF (11%)
+  • Nuclear Proximity (7%)
 
-Economic Factors (20%):
-  • Energy Costs (10%)
-  • Congestion Risk (5%)
-  • Transmission Cost (5%)
+Economic Factors (17%):
+  • Energy Costs (9%)
+  • Congestion Risk (4%)
+  • Transmission Cost (4%)
 
-🏙️ Zone Demand (10%): ← NEW! Avoids congested areas
-  • Lower Demand Score (10%)
+🏗️ Land Availability (10%): ← NEW! Zoning data
+  • Zoning Suitability (6%)
+  • Site Type Match (4%)
 
-Co-Location Potential (12%):
-  • Solar Potential (7%)
-  • Wind Potential (5%)
+💧 Water Availability (10%): ← NEW! Cooling water
+  • Water Abundance (5%)
+  • Low Water Stress (3%)
+  • Potable Capacity (2%)
 
-Plant-Level eGRID (8%):
-  • Plant Proximity (4%)
-  • eGRID Renewables (2%)
-  • Low Emissions (2%)
+🏙️ Zone Demand (8%): ← Avoids congested areas
+  • Lower Demand Score (8%)
+
+Co-Location Potential (8%):
+  • Solar Potential (5%)
+  • Wind Potential (3%)
+
+Plant-Level eGRID (4%):
+  • Plant Proximity (2%)
+  • eGRID Renewables (1%)
+  • Low Emissions (1%)
 ```
 
-**⚡ KEY CHANGE: SLACK vs TOTAL Capacity**
-- Previous: Scored based on total capacity (favored West Coast cities)
-- Updated: Scores based on SPARE capacity after existing demand
-- Result: Avoids congested urban areas, finds locations with genuine spare capacity
+**🎉 COMPLETE COVERAGE: All 10 Parameters!**
+1. ✅ Transmission Capacity (slack)
+2. ✅ Generation Capacity (slack)
+3. ✅ Energy Costs
+4. ✅ Congestion Risk
+5. ✅ Renewable Energy
+6. ✅ Emissions
+7. ✅ Nuclear Proximity
+8. ✅ Co-location Potential
+9. ✅ **Land Availability (zoning)** ← NEW!
+10. ✅ **Water Availability (cooling)** ← NEW!
 
 **Aligned with RWE advisor priorities!**
 **Filters for 2GW data center feasibility!**
@@ -62,6 +80,8 @@ Plant-Level eGRID (8%):
 ## Data Sources
 1. **usa_bus_features_2016.csv** - PowerSimData transmission substations (82K+ substations)
 2. **Untitled spreadsheet - PLNT23.csv** - EPA eGRID plant data (12K+ plants)
+3. **synthetic_regrid_parcel_grid.csv** - Regrid zoning data (200 sites) ← NEW!
+4. **synthetic_us_water_latlon_grid.csv** - US water availability grid (780 points) ← NEW!
 
 ## Results
 - **meta_datacenter_top20_with_transmission_20251115_1651.csv** - Top 20 recommended locations
@@ -76,7 +96,9 @@ Top 5 locations provide:
 - CO2 intensity
 
 ## Documentation
-- **SLACK_CAPACITY_UPDATE.md** - ⚡ CRITICAL! Explains slack capacity analysis ← READ THIS FIRST!
+- **ZONING_WATER_SUMMARY.md** - 🎉 LATEST! Complete 16-factor model ← READ THIS FIRST!
+- **ZONING_WATER_INTEGRATION_PLAN.md** - Detailed integration strategy
+- **SLACK_CAPACITY_UPDATE.md** - ⚡ Explains slack capacity analysis
 - **RWE_ALIGNMENT_SUMMARY.md** - RWE-aligned model details
 - **COMPREHENSIVE_MODEL_SUMMARY.md** - 12-factor model baseline
 - **GRANULARITY_SUMMARY.md** - Explains substation-level precision
