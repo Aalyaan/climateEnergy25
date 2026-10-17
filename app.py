@@ -8,7 +8,7 @@ import os
 
 # Page configuration
 st.set_page_config(
-    page_title="DataPlace - Power Plant Siting Analysis",
+    page_title="Nexsite - Data Center Siting Analysis",
     page_icon="🏢",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -188,6 +188,9 @@ def score_plants(df, param_weights, category_weights):
         param_weights['P5_Water']['lower48'] * i48
     )
     
+    # Calculate P6: Transmission Capacity (normalized)
+    out['P6_Transmission_Capacity'] = norm(safe_numeric(out['bus_sum_line_capacity_MW']))
+    
     # Final category scores (0-100)
     cat_names = list(category_weights.keys())
     for cat in cat_names:
@@ -197,7 +200,8 @@ def score_plants(df, param_weights, category_weights):
             w[1] * out['P2_Emissions'] +
             w[2] * out['P3_Capital_Investment'] +
             w[3] * out['P4_Reliability'] +
-            w[4] * out['P5_Water']
+            w[4] * out['P5_Water'] +
+            w[5] * out['P6_Transmission_Capacity']
         )
     
     # Overall score as average of the 3 categories
@@ -352,7 +356,8 @@ def create_map(df_scored, top3_per_category, top5_overall):
             'Category': False
         },
         color_discrete_map=color_map,
-        title='🏢 DataPlace - Top Power Plant Locations<br><sub>Interactive Multi-Criteria Siting Analysis</sub>',
+        # title='🏢 Nexsite - Top Potential Data Center Locations<br><sub>Interactive Multi-Criteria Siting Analysis</sub>',
+        title='Nexsite - Top Potential Data Center Locations<br><sub>Interactive Multi-Criteria Siting Analysis</sub>',
         scope='usa',
         height=800,
         size_max=30
@@ -399,6 +404,112 @@ def create_map(df_scored, top3_per_category, top5_overall):
     
     return fig
 
+def estimate_total_cost(row, dc_size_mw=2000):
+    """
+    Estimate total cost of ownership for a data center location.
+    
+    Parameters:
+    - row: DataFrame row with location data
+    - dc_size_mw: Assumed data center size in MW (default 2000MW = 2GW data center)
+    
+    Returns:
+    - Dictionary with cost breakdown and total estimates
+    """
+    # Assumptions for cost estimation
+    # Scale land needed with data center size (roughly 50 acres per 100MW)
+    land_acres_needed = (dc_size_mw / 100) * 50  # Scale proportionally
+    electricity_utilization = 0.85  # 85% utilization factor
+    hours_per_year = 8760
+    # Transmission line costs: $1-3M per mile for high-voltage lines
+    # For 2GW, typically need 500kV+ lines, cost ~$2M per mile = ~$1.24M per km
+    # Base cost scales with capacity and distance
+    transmission_base_cost_per_km = 1240000  # $1.24M per km base cost
+    transmission_cost_per_mw_per_km = 200000  # Additional $200k per MW per km for capacity
+    land_cost_per_acre_multiplier = 0.1  # Assume 10% of property value per acre (rough estimate)
+    
+    costs = {}
+    
+    # 1. Land/Property Costs
+    property_value = row.get('mean_property_value_3mi', 0)
+    if pd.notna(property_value) and property_value > 0:
+        # Estimate land cost (property value is average in 3mi radius, use as proxy)
+        estimated_land_cost = property_value * land_cost_per_acre_multiplier * land_acres_needed
+        costs['Land Acquisition'] = estimated_land_cost
+    else:
+        costs['Land Acquisition'] = 5000000  # Default $5M if no data
+    
+    # 2. Annual Electricity Costs
+    electricity_rate = row.get('Electricity_Cost_State_cents_per_kWh', 10.0) / 100  # Convert cents to dollars
+    annual_energy_mwh = dc_size_mw * electricity_utilization * hours_per_year / 1000
+    annual_electricity_cost = annual_energy_mwh * electricity_rate * 1000  # Convert back to kWh
+    costs['Annual Electricity'] = annual_electricity_cost
+    
+    # 3. Transmission Line Construction Costs (one-time)
+    # This is a major cost component - building new transmission lines for 2GW can cost $500M-$2B+
+    transmission_distance = row.get('bus_dist_to_nearest_renewable_plant_km', 10)
+    transmission_capacity = row.get('bus_sum_line_capacity_MW', 0)
+    
+    # Base transmission line cost (right-of-way, towers, conductors, substations)
+    base_line_cost = transmission_distance * transmission_base_cost_per_km
+    
+    # Capacity-dependent costs (larger capacity requires more expensive equipment)
+    capacity_cost = transmission_distance * transmission_cost_per_mw_per_km * dc_size_mw
+    
+    if transmission_capacity > 0:
+        # If existing transmission capacity is sufficient, we may only need upgrades/connections
+        if transmission_capacity >= dc_size_mw:
+            # Existing capacity sufficient - only need connection/upgrade costs (30% of new build)
+            connection_cost = (base_line_cost + capacity_cost) * 0.3
+            costs['Transmission Line Construction'] = connection_cost
+            costs['Transmission Cost Type'] = 'Upgrade/Connection'
+        elif transmission_capacity >= dc_size_mw * 0.5:
+            # Partial capacity exists - need significant upgrades (60% of new build)
+            connection_cost = (base_line_cost + capacity_cost) * 0.6
+            costs['Transmission Line Construction'] = connection_cost
+            costs['Transmission Cost Type'] = 'Major Upgrade'
+        else:
+            # Insufficient capacity - need new transmission lines (full cost)
+            connection_cost = base_line_cost + capacity_cost
+            costs['Transmission Line Construction'] = connection_cost
+            costs['Transmission Cost Type'] = 'New Construction'
+    else:
+        # No existing capacity - full new transmission line construction
+        connection_cost = base_line_cost + capacity_cost
+        costs['Transmission Line Construction'] = connection_cost
+        costs['Transmission Cost Type'] = 'New Construction'
+    
+    # Additional transmission infrastructure costs (substations, switchyards, etc.)
+    # For 2GW, typically need multiple substations: ~$50-100M each
+    substation_cost = 75000000  # $75M per major substation
+    num_substations = max(1, int(dc_size_mw / 1000))  # One per GW, minimum 1
+    costs['Substation/Switchyard'] = substation_cost * num_substations
+    
+    total_transmission_cost = costs['Transmission Line Construction'] + costs['Substation/Switchyard']
+    costs['Transmission Connection (One-time)'] = total_transmission_cost
+    
+    # 4. Water Costs (annual, if available)
+    potable_capacity = row.get('potable_capacity_mgd_weighted', 0)
+    if potable_capacity > 0:
+        # Typical data center uses ~1-3 MGD, estimate $5 per 1000 gallons
+        water_usage_mgd = min(3.0, potable_capacity * 0.5)  # Use 50% of available capacity
+        annual_water_cost = water_usage_mgd * 365 * 1000 * 5  # $5 per 1000 gallons
+        costs['Annual Water'] = annual_water_cost
+    else:
+        costs['Annual Water'] = 500000  # Default $500k/year
+    
+    # 5. Calculate totals
+    one_time_costs = costs.get('Land Acquisition', 0) + costs.get('Transmission Connection (One-time)', 0)
+    annual_operating_costs = costs.get('Annual Electricity', 0) + costs.get('Annual Water', 0)
+    
+    # 10-year TCO (simplified, no discounting)
+    ten_year_tco = one_time_costs + (annual_operating_costs * 10)
+    
+    costs['Total One-Time Costs'] = one_time_costs
+    costs['Total Annual Operating Costs'] = annual_operating_costs
+    costs['10-Year TCO'] = ten_year_tco
+    
+    return costs
+
 def get_plant_details(row):
     """Get detailed information about a plant"""
     details = {
@@ -419,7 +530,8 @@ def get_plant_details(row):
             'Emissions': f"{row.get('P2_Emissions', 0):.3f}",
             'Capital Investment': f"{row.get('P3_Capital_Investment', 0):.3f}",
             'Reliability': f"{row.get('P4_Reliability', 0):.3f}",
-            'Water': f"{row.get('P5_Water', 0):.3f}"
+            'Water': f"{row.get('P5_Water', 0):.3f}",
+            'Transmission Capacity': f"{row.get('P6_Transmission_Capacity', 0):.3f}"
         },
         'Transmission': {
             'Line Capacity': f"{row.get('bus_sum_line_capacity_MW', 0):,.0f} MW",
@@ -429,15 +541,17 @@ def get_plant_details(row):
         'Economics': {
             'Electricity Cost': f"{row.get('Electricity_Cost_State_cents_per_kWh', 0):.2f} ¢/kWh",
             'Property Value (3mi)': f"${row.get('mean_property_value_3mi', 0):,.0f}" if pd.notna(row.get('mean_property_value_3mi')) else 'N/A'
-        }
+        },
+        'Cost Estimates': estimate_total_cost(row, dc_size_mw=2000)
     }
     return details
 
 # Main app
 def main():
     # Header
-    st.markdown('<div class="main-header">🏢 DataPlace</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Power Plant Multi-Criteria Siting Analysis</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">🏢 Nexsite</div>', unsafe_allow_html=True)
+    # st.markdown('<div class="main-header">Nexsite</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Data Center Placement Multi-Criteria Siting Analysis<br><em style="font-size: 1.0rem; color: #888;">Find what\'s next.</em></div>', unsafe_allow_html=True)
     
     # Load data
     with st.spinner("Loading data... This may take a moment."):
@@ -446,70 +560,7 @@ def main():
     
     st.success(f"✓ Loaded {len(df):,} power plants")
     
-    # Sidebar for parameters
-    st.sidebar.header("⚙️ Parameter Weights")
-    st.sidebar.markdown("Adjust weights for each parameter group:")
-    
-    # P1: Proximity to RE
-    st.sidebar.subheader("🌱 P1: Proximity to Renewable Energy")
-    p1_dist = st.sidebar.slider("Distance Weight", 0.0, 1.0, 0.40, 0.05)
-    p1_share = st.sidebar.slider("Renewable Share Weight", 0.0, 1.0, 0.35, 0.05)
-    p1_cap = st.sidebar.slider("Capacity Weight", 0.0, 1.0, 0.25, 0.05)
-    p1_total = p1_dist + p1_share + p1_cap
-    if p1_total > 0:
-        p1_dist, p1_share, p1_cap = p1_dist/p1_total, p1_share/p1_total, p1_cap/p1_total
-    
-    # P2: Emissions
-    st.sidebar.subheader("🌍 P2: Emissions")
-    p2_co2e = st.sidebar.slider("CO2e Weight", 0.0, 1.0, 0.70, 0.05)
-    p2_co2 = st.sidebar.slider("CO2 Weight", 0.0, 1.0, 0.30, 0.05)
-    p2_nox = st.sidebar.slider("NOx Weight", 0.0, 1.0, 0.50, 0.05)
-    p2_so2 = st.sidebar.slider("SO2 Weight", 0.0, 1.0, 0.50, 0.05)
-    p2_climate = st.sidebar.slider("Climate Impact Weight", 0.0, 1.0, 0.75, 0.05)
-    p2_air = st.sidebar.slider("Air Quality Weight", 0.0, 1.0, 0.25, 0.05)
-    p2_climate_total = p2_co2e + p2_co2
-    p2_air_total = p2_nox + p2_so2
-    if p2_climate_total > 0:
-        p2_co2e, p2_co2 = p2_co2e/p2_climate_total, p2_co2/p2_climate_total
-    if p2_air_total > 0:
-        p2_nox, p2_so2 = p2_nox/p2_air_total, p2_so2/p2_air_total
-    p2_total = p2_climate + p2_air
-    if p2_total > 0:
-        p2_climate, p2_air = p2_climate/p2_total, p2_air/p2_total
-    
-    # P3: Capital Investment
-    st.sidebar.subheader("💰 P3: Capital Investment")
-    p3_land = st.sidebar.slider("Land Cost Weight", 0.0, 1.0, 0.40, 0.05)
-    p3_trans = st.sidebar.slider("Transmission Weight", 0.0, 1.0, 0.40, 0.05)
-    p3_elec = st.sidebar.slider("Electricity Cost Weight", 0.0, 1.0, 0.20, 0.05)
-    p3_trans_dist = st.sidebar.slider("Transmission Distance Weight", 0.0, 1.0, 0.50, 0.05)
-    p3_trans_cap = st.sidebar.slider("Transmission Capacity Weight", 0.0, 1.0, 0.50, 0.05)
-    p3_total = p3_land + p3_trans + p3_elec
-    if p3_total > 0:
-        p3_land, p3_trans, p3_elec = p3_land/p3_total, p3_trans/p3_total, p3_elec/p3_total
-    p3_trans_total = p3_trans_dist + p3_trans_cap
-    if p3_trans_total > 0:
-        p3_trans_dist, p3_trans_cap = p3_trans_dist/p3_trans_total, p3_trans_cap/p3_trans_total
-    
-    # P4: Reliability
-    st.sidebar.subheader("⚡ P4: Reliability")
-    p4_saidi = st.sidebar.slider("SAIDI Weight", 0.0, 1.0, 0.35, 0.05)
-    p4_saifi = st.sidebar.slider("SAIFI Weight", 0.0, 1.0, 0.35, 0.05)
-    p4_degree = st.sidebar.slider("Grid Degree Weight", 0.0, 1.0, 0.15, 0.05)
-    p4_cap = st.sidebar.slider("Capacity Weight", 0.0, 1.0, 0.15, 0.05)
-    p4_total = p4_saidi + p4_saifi + p4_degree + p4_cap
-    if p4_total > 0:
-        p4_saidi, p4_saifi, p4_degree, p4_cap = p4_saidi/p4_total, p4_saifi/p4_total, p4_degree/p4_total, p4_cap/p4_total
-    
-    # P5: Water
-    st.sidebar.subheader("💧 P5: Water")
-    p5_potable = st.sidebar.slider("Potable Capacity Weight", 0.0, 1.0, 0.90, 0.05)
-    p5_lower48 = st.sidebar.slider("Lower 48 Weight", 0.0, 1.0, 0.10, 0.05)
-    p5_total = p5_potable + p5_lower48
-    if p5_total > 0:
-        p5_potable, p5_lower48 = p5_potable/p5_total, p5_lower48/p5_total
-    
-    # Category weights
+    # Sidebar for category weights only
     st.sidebar.header("📊 Category Weights")
     st.sidebar.markdown("Weight of each parameter in each category:")
     
@@ -519,9 +570,10 @@ def main():
     lc_p3 = st.sidebar.slider("P3 (Capital)", 0.0, 1.0, 0.60, 0.05)
     lc_p4 = st.sidebar.slider("P4 (Reliability)", 0.0, 1.0, 0.10, 0.05)
     lc_p5 = st.sidebar.slider("P5 (Water)", 0.0, 1.0, 0.20, 0.05)
-    lc_total = lc_p1 + lc_p2 + lc_p3 + lc_p4 + lc_p5
+    lc_p6 = st.sidebar.slider("P6 (Transmission Capacity)", 0.0, 1.0, 0.00, 0.05)
+    lc_total = lc_p1 + lc_p2 + lc_p3 + lc_p4 + lc_p5 + lc_p6
     if lc_total > 0:
-        lc_p1, lc_p2, lc_p3, lc_p4, lc_p5 = lc_p1/lc_total, lc_p2/lc_total, lc_p3/lc_total, lc_p4/lc_total, lc_p5/lc_total
+        lc_p1, lc_p2, lc_p3, lc_p4, lc_p5, lc_p6 = lc_p1/lc_total, lc_p2/lc_total, lc_p3/lc_total, lc_p4/lc_total, lc_p5/lc_total, lc_p6/lc_total
     
     st.sidebar.subheader("Lowest Emissions")
     le_p1 = st.sidebar.slider("P1 (RE Proximity)", 0.0, 1.0, 0.20, 0.05, key='le_p1')
@@ -529,9 +581,10 @@ def main():
     le_p3 = st.sidebar.slider("P3 (Capital)", 0.0, 1.0, 0.00, 0.05, key='le_p3')
     le_p4 = st.sidebar.slider("P4 (Reliability)", 0.0, 1.0, 0.10, 0.05, key='le_p4')
     le_p5 = st.sidebar.slider("P5 (Water)", 0.0, 1.0, 0.10, 0.05, key='le_p5')
-    le_total = le_p1 + le_p2 + le_p3 + le_p4 + le_p5
+    le_p6 = st.sidebar.slider("P6 (Transmission Capacity)", 0.0, 1.0, 0.00, 0.05, key='le_p6')
+    le_total = le_p1 + le_p2 + le_p3 + le_p4 + le_p5 + le_p6
     if le_total > 0:
-        le_p1, le_p2, le_p3, le_p4, le_p5 = le_p1/le_total, le_p2/le_total, le_p3/le_total, le_p4/le_total, le_p5/le_total
+        le_p1, le_p2, le_p3, le_p4, le_p5, le_p6 = le_p1/le_total, le_p2/le_total, le_p3/le_total, le_p4/le_total, le_p5/le_total, le_p6/le_total
     
     st.sidebar.subheader("Highest Reliability")
     hr_p1 = st.sidebar.slider("P1 (RE Proximity)", 0.0, 1.0, 0.20, 0.05, key='hr_p1')
@@ -539,11 +592,30 @@ def main():
     hr_p3 = st.sidebar.slider("P3 (Capital)", 0.0, 1.0, 0.10, 0.05, key='hr_p3')
     hr_p4 = st.sidebar.slider("P4 (Reliability)", 0.0, 1.0, 0.60, 0.05, key='hr_p4')
     hr_p5 = st.sidebar.slider("P5 (Water)", 0.0, 1.0, 0.10, 0.05, key='hr_p5')
-    hr_total = hr_p1 + hr_p2 + hr_p3 + hr_p4 + hr_p5
+    hr_p6 = st.sidebar.slider("P6 (Transmission Capacity)", 0.0, 1.0, 0.00, 0.05, key='hr_p6')
+    hr_total = hr_p1 + hr_p2 + hr_p3 + hr_p4 + hr_p5 + hr_p6
     if hr_total > 0:
-        hr_p1, hr_p2, hr_p3, hr_p4, hr_p5 = hr_p1/hr_total, hr_p2/hr_total, hr_p3/hr_total, hr_p4/hr_total, hr_p5/hr_total
+        hr_p1, hr_p2, hr_p3, hr_p4, hr_p5, hr_p6 = hr_p1/hr_total, hr_p2/hr_total, hr_p3/hr_total, hr_p4/hr_total, hr_p5/hr_total, hr_p6/hr_total
     
-    # Build weight dictionaries
+    # Build weight dictionaries with default values for P1-P5
+    # Default P1 weights
+    p1_dist, p1_share, p1_cap = 0.40, 0.35, 0.25
+    
+    # Default P2 weights
+    p2_co2e, p2_co2 = 0.70, 0.30
+    p2_nox, p2_so2 = 0.50, 0.50
+    p2_climate, p2_air = 0.75, 0.25
+    
+    # Default P3 weights
+    p3_land, p3_trans, p3_elec = 0.40, 0.40, 0.20
+    p3_trans_dist, p3_trans_cap = 0.50, 0.50
+    
+    # Default P4 weights
+    p4_saidi, p4_saifi, p4_degree, p4_cap = 0.35, 0.35, 0.15, 0.15
+    
+    # Default P5 weights
+    p5_potable, p5_lower48 = 0.90, 0.10
+    
     param_weights = {
         'P1_Proximity_RE': {'dist': p1_dist, 'share': p1_share, 'cap': p1_cap},
         'P2_Emissions': {
@@ -559,22 +631,34 @@ def main():
     }
     
     category_weights = {
-        'Lowest Cost': [lc_p1, lc_p2, lc_p3, lc_p4, lc_p5],
-        'Lowest Emissions': [le_p1, le_p2, le_p3, le_p4, le_p5],
-        'Highest Reliability': [hr_p1, hr_p2, hr_p3, hr_p4, hr_p5]
+        'Lowest Cost': [lc_p1, lc_p2, lc_p3, lc_p4, lc_p5, lc_p6],
+        'Lowest Emissions': [le_p1, le_p2, le_p3, le_p4, le_p5, le_p6],
+        'Highest Reliability': [hr_p1, hr_p2, hr_p3, hr_p4, hr_p5, hr_p6]
     }
     
-    # State diversity penalty slider
-    st.sidebar.header("🌍 Geographic Diversity")
-    penalty_factor = st.sidebar.slider(
-        "State Diversity Penalty", 
-        0.0, 0.5, 0.1, 0.05,
-        help="Penalty applied when multiple top locations are in the same state (0 = no penalty, 0.5 = 50% reduction)"
-    )
+    # State diversity penalty is fixed at 0.5
+    penalty_factor = 0.5
     
     # Calculate scores
     with st.spinner("Calculating scores..."):
         df_scored = score_plants(df, param_weights, category_weights)
+    
+    # Calculate median costs for comparison
+    with st.spinner("Calculating cost estimates..."):
+        all_costs = []
+        for idx, row in df_scored.iterrows():
+            costs = estimate_total_cost(row, dc_size_mw=2000)
+            all_costs.append(costs.get('10-Year TCO', 0))
+        
+        median_tco = 0
+        if all_costs and len(all_costs) > 0:
+            median_tco = float(np.median(all_costs))
+            st.session_state['median_tco'] = median_tco  # Store in session state for access
+        else:
+            st.session_state['median_tco'] = 0
+    
+    # Retrieve median from session state if available
+    median_tco = st.session_state.get('median_tco', 0)
     
     # Get top locations with state diversity penalty
     top3_cost = select_top_with_state_diversity(df_scored, 'Lowest Cost_Score', top_n=3, penalty_factor=penalty_factor)
@@ -592,12 +676,15 @@ def main():
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        st.header("🗺️ Interactive Map")
+        # st.header("🗺️ Interactive Map")
+        st.header("Interactive Map")
+
         fig = create_map(df_scored, top3_per_category, top5_overall)
         st.plotly_chart(fig, use_container_width=True)
     
     with col2:
-        st.header("📊 Top Locations")
+        # st.header("📊 Top Locations")
+        st.header("Top Locations")
         
         # Top 3 per category
         for cat_name, top_df in top3_per_category.items():
@@ -607,6 +694,17 @@ def main():
                     st.write(f"**#{idx}** {county_name}")
                     st.write(f"Score: {row[cat_name + '_Score']:.1f}/100")
                     st.write(f"State: {row['Plant state abbreviation']}")
+                    # Show cost estimate for Lowest Cost category
+                    if cat_name == 'Lowest Cost':
+                        cost_est = estimate_total_cost(row, dc_size_mw=2000)
+                        location_tco = cost_est.get('10-Year TCO', 0)
+                        st.write(f"**Est. 10-Year TCO:** ${location_tco:,.0f}")
+                        if median_tco > 0:
+                            savings = median_tco - location_tco
+                            savings_pct = (savings / median_tco * 100) if median_tco > 0 else 0
+                            savings_color = "green" if savings > 0 else "red"
+                            st.markdown(f"**vs. Median:** <span style='color: {savings_color}'>{'$' + f'{savings:+,.0f}'} ({savings_pct:+.1f}%)</span>", unsafe_allow_html=True)
+                            st.caption(f"Median TCO: ${median_tco:,.0f}")
                     if st.button(f"View Details", key=f"details_{cat_name}_{i}"):
                         st.session_state['selected_plant'] = i
                     st.write("---")
@@ -618,6 +716,16 @@ def main():
                 st.write(f"**#{idx}** {county_name}")
                 st.write(f"Overall Score: {row['Overall_Score']:.1f}/100")
                 st.write(f"State: {row['Plant state abbreviation']}")
+                # Show cost estimate
+                cost_est = estimate_total_cost(row, dc_size_mw=2000)
+                location_tco = cost_est.get('10-Year TCO', 0)
+                st.write(f"**Est. 10-Year TCO:** ${location_tco:,.0f}")
+                if median_tco > 0:
+                    savings = median_tco - location_tco
+                    savings_pct = (savings / median_tco * 100) if median_tco > 0 else 0
+                    savings_color = "green" if savings > 0 else "red"
+                    st.markdown(f"**vs. Median:** <span style='color: {savings_color}'>{'$' + f'{savings:+,.0f}'} ({savings_pct:+.1f}%)</span>", unsafe_allow_html=True)
+                    st.caption(f"Median TCO: ${median_tco:,.0f}")
                 if st.button(f"View Details", key=f"details_overall_{i}"):
                     st.session_state['selected_plant'] = i
                 st.write("---")
@@ -661,13 +769,42 @@ def main():
                 for k, v in details['Economics'].items():
                     st.write(f"- {k}: {v}")
             
+            st.subheader("💰 Cost Estimates (2GW Data Center)")
+            cost_col1, cost_col2, cost_col3 = st.columns(3)
+            with cost_col1:
+                st.write("**One-Time Costs:**")
+                st.write(f"- Land: ${details['Cost Estimates'].get('Land Acquisition', 0):,.0f}")
+                trans_line = details['Cost Estimates'].get('Transmission Line Construction', 0)
+                substation = details['Cost Estimates'].get('Substation/Switchyard', 0)
+                trans_type = details['Cost Estimates'].get('Transmission Cost Type', 'N/A')
+                st.write(f"- Transmission Lines: ${trans_line:,.0f}")
+                st.caption(f"  ({trans_type})")
+                st.write(f"- Substations: ${substation:,.0f}")
+                st.write(f"- **Total Transmission:** ${details['Cost Estimates'].get('Transmission Connection (One-time)', 0):,.0f}")
+                st.write(f"- **Total One-Time:** ${details['Cost Estimates'].get('Total One-Time Costs', 0):,.0f}")
+            with cost_col2:
+                st.write("**Annual Operating Costs:**")
+                st.write(f"- Electricity: ${details['Cost Estimates'].get('Annual Electricity', 0):,.0f}")
+                st.write(f"- Water: ${details['Cost Estimates'].get('Annual Water', 0):,.0f}")
+                st.write(f"- **Total:** ${details['Cost Estimates'].get('Total Annual Operating Costs', 0):,.0f}")
+            with cost_col3:
+                st.write("**Total Cost of Ownership:**")
+                location_tco = details['Cost Estimates'].get('10-Year TCO', 0)
+                st.write(f"- **10-Year TCO:** ${location_tco:,.0f}")
+                if median_tco > 0:
+                    savings = median_tco - location_tco
+                    savings_pct = (savings / median_tco * 100) if median_tco > 0 else 0
+                    st.write(f"- **Median TCO:** ${median_tco:,.0f}")
+                    st.write(f"- **vs. Median:** ${savings:+,.0f} ({savings_pct:+.1f}%)")
+            st.caption("*Estimates assume 2GW (2000MW) facility, 85% utilization")
+            
             if st.button("Close Details"):
                 st.session_state['selected_plant'] = None
                 st.rerun()
     
     # Statistics
     st.header("📈 Analysis Statistics")
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         st.metric("Total Plants", f"{len(df_scored):,}")
     with col2:
@@ -676,6 +813,11 @@ def main():
         st.metric("Max Overall Score", f"{df_scored['Overall_Score'].max():.1f}")
     with col4:
         st.metric("Min Overall Score", f"{df_scored['Overall_Score'].min():.1f}")
+    with col5:
+        if median_tco > 0:
+            st.metric("Median 10-Year TCO (2GW)", f"${median_tco:,.0f}")
+        else:
+            st.metric("Median 10-Year TCO (2GW)", "Calculating...")
     
     # Export
     st.header("💾 Export Results")
@@ -690,7 +832,7 @@ def main():
     st.download_button(
         label="Download Top Locations CSV",
         data=csv,
-        file_name=f"DataPlace_top_locations_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+        file_name=f"Nexsite_top_locations_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
         mime="text/csv"
     )
 
