@@ -6,6 +6,9 @@ import plotly.graph_objects as go
 from datetime import datetime
 import os
 
+DATA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         'data', 'processed', 'power_plant_siting_master_data.csv')
+
 # Page configuration
 st.set_page_config(
     page_title="Nexsite - Data Center Siting Analysis",
@@ -43,7 +46,7 @@ st.markdown("""
 def load_data():
     """Load and cache the master data file"""
     try:
-        df = pd.read_csv('power_plant_siting_master_data.csv', low_memory=False)
+        df = pd.read_csv(DATA_PATH, low_memory=False)
         return df
     except Exception as e:
         st.error(f"Error loading data: {e}")

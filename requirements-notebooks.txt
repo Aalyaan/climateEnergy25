@@ -1,0 +1,10 @@
+-r requirements.txt
+scipy>=1.11.0
+matplotlib
+rasterio
+pyproj
+shapely
+xarray
+jupyter
+# Only for the last cells of notebooks/substation_siting_model.ipynb (scenario export):
+# powersimdata (install from https://github.com/Breakthrough-Energy/PowerSimData)
