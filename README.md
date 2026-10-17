@@ -35,7 +35,7 @@ its write-ups in `docs/archive/`.
 | `data/raw/usa_bus_features_2016.csv` | Substation features exported from Breakthrough Energy's PowerSimData USA grid |
 | `data/raw/synthetic_us_water_latlon_grid.csv` | **Synthetic.** Generated placeholder for water availability |
 | `data/raw/synthetic_regrid_parcel_grid.csv` | **Synthetic.** Generated placeholder for land parcels and zoning |
-| `data/raw/places_fmv_all.tif` | Property value raster, not included (125 MB): TODO source |
+| `data/raw/places_fmv_all.tif` | Property value raster, not included (125 MB) |
 | State tables in `app.py` | Electricity price (cents/kWh), SAIDI and SAIFI by state |
 
 **Limitations.** The water (P5) and zoning inputs are synthetic placeholders made
