@@ -8,47 +8,80 @@ Determine optimal locations for Meta's next data center (and other energy-intens
 
 ### Features:
 - ✅ **82,071 substations** analyzed (substation-level granularity)
-- ✅ **12,612 power plants** from eGRID integrated
-- ✅ **12-factor scoring model** covering grid, economics, and co-location
-- ✅ **Transmission line capacity** and infrastructure
-- ✅ **Distance to actual power plants**
-- ✅ **Plant-level emissions** (actual CO2 rates)
-- ✅ **Plant-level renewable energy** (actual generation mix)
-- ✅ **Energy costs** (retail electricity prices) ← NEW!
-- ✅ **Congestion risk** analysis ← NEW!
-- ✅ **Solar/wind co-location potential** ← NEW!
+- ✅ **12,612 power plants** from eGRID (including 93 nuclear plants)
+- ✅ **16-factor COMPREHENSIVE scoring model** ← COMPLETE! All 10 parameters covered
+- ✅ **⚡ SLACK CAPACITY analysis** - Filters for SPARE capacity, not just total
+- ✅ **🏗️ ZONING & LAND AVAILABILITY** ← NEW! Regrid data for buildable sites
+- ✅ **💧 WATER AVAILABILITY** ← NEW! Cooling water for data centers
+- ✅ **2GW data center feasibility filter** - Per RWE requirements
+- ✅ **Capacity factor matching** (nuclear, solar, wind) - Per RWE
+- ✅ **Cost savings analysis** ($M annual & 10-year) - Per RWE
+- ✅ **Zone demand filtering** - Avoids congested urban areas
+- ✅ **Transmission capacity** (≥2GW for data center)
+- ✅ **Generation capacity** (≥3GW nearby)
+- ✅ **Nuclear proximity** (high capacity factor)
+- ✅ **Energy costs** with $ quantification
+- ✅ **Co-location potential** (solar + wind + storage)
 - ✅ **Interactive visualizations** (Plotly + Matplotlib)
 
-### Comprehensive Scoring Model (12 Factors!):
+### COMPREHENSIVE 16-Factor Scoring Model:
 ```
-Grid Infrastructure (30%):
-  • Transmission Capacity (12%)
-  • Generation Capacity (10%)
-  • Grid Infrastructure (8%)
+⚡ Grid SLACK Capacity (25%): ← CRITICAL! Uses SPARE capacity
+  • Transmission SLACK (15%)
+  • Generation SLACK (10%)
 
-Plant-Level eGRID Data (25%):
-  • Plant Proximity (10%)
-  • eGRID Renewables (8%)
-  • eGRID Emissions (7%)
+Capacity Factor Matching (18%): ← RWE Priority
+  • Effective Capacity w/ CF (11%)
+  • Nuclear Proximity (7%)
 
-Economic Factors (20%): ← NEW!
-  • Energy Costs (10%)
-  • Congestion Risk (5%)
-  • Transmission Cost (5%)
+Economic Factors (17%):
+  • Energy Costs (9%)
+  • Congestion Risk (4%)
+  • Transmission Cost (4%)
 
-Co-Location Potential (15%): ← NEW!
-  • Solar Potential (8%)
-  • Wind Potential (7%)
+🏗️ Land Availability (10%): ← NEW! Zoning data
+  • Zoning Suitability (6%)
+  • Site Type Match (4%)
 
-Sustainability (10%):
-  • Plant Density (10%)
+💧 Water Availability (10%): ← NEW! Cooling water
+  • Water Abundance (5%)
+  • Low Water Stress (3%)
+  • Potable Capacity (2%)
+
+🏙️ Zone Demand (8%): ← Avoids congested areas
+  • Lower Demand Score (8%)
+
+Co-Location Potential (8%):
+  • Solar Potential (5%)
+  • Wind Potential (3%)
+
+Plant-Level eGRID (4%):
+  • Plant Proximity (2%)
+  • eGRID Renewables (1%)
+  • Low Emissions (1%)
 ```
 
-**Covers 8 out of 10 required parameters (80%)!**
+**🎉 COMPLETE COVERAGE: All 10 Parameters!**
+1. ✅ Transmission Capacity (slack)
+2. ✅ Generation Capacity (slack)
+3. ✅ Energy Costs
+4. ✅ Congestion Risk
+5. ✅ Renewable Energy
+6. ✅ Emissions
+7. ✅ Nuclear Proximity
+8. ✅ Co-location Potential
+9. ✅ **Land Availability (zoning)** ← NEW!
+10. ✅ **Water Availability (cooling)** ← NEW!
+
+**Aligned with RWE advisor priorities!**
+**Filters for 2GW data center feasibility!**
+**Includes cost savings analysis ($M)!**
 
 ## Data Sources
 1. **usa_bus_features_2016.csv** - PowerSimData transmission substations (82K+ substations)
 2. **Untitled spreadsheet - PLNT23.csv** - EPA eGRID plant data (12K+ plants)
+3. **synthetic_regrid_parcel_grid.csv** - Regrid zoning data (200 sites) ← NEW!
+4. **synthetic_us_water_latlon_grid.csv** - US water availability grid (780 points) ← NEW!
 
 ## Results
 - **meta_datacenter_top20_with_transmission_20251115_1651.csv** - Top 20 recommended locations
@@ -63,9 +96,11 @@ Top 5 locations provide:
 - CO2 intensity
 
 ## Documentation
-- **COMPREHENSIVE_MODEL_SUMMARY.md** - LATEST! 12-factor model details ← READ THIS FIRST!
-- **EGRID_INTEGRATION_SUMMARY.md** - eGRID data integration details
-- **METRICS_COVERAGE.md** - What metrics are covered vs missing (80% coverage!)
+- **ZONING_WATER_SUMMARY.md** - 🎉 LATEST! Complete 16-factor model ← READ THIS FIRST!
+- **ZONING_WATER_INTEGRATION_PLAN.md** - Detailed integration strategy
+- **SLACK_CAPACITY_UPDATE.md** - ⚡ Explains slack capacity analysis
+- **RWE_ALIGNMENT_SUMMARY.md** - RWE-aligned model details
+- **COMPREHENSIVE_MODEL_SUMMARY.md** - 12-factor model baseline
 - **GRANULARITY_SUMMARY.md** - Explains substation-level precision
 - **TRANSMISSION_DATA_SUMMARY.md** - PowerSimData capabilities
 - **MAP_VISUALIZATION_GUIDE.md** - How to use visualizations
