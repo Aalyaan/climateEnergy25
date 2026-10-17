@@ -1,133 +1,59 @@
-# Optimal Siting Framework for Energy-Intensive Infrastructure
+# Nexsite: Data Center Siting on the US Grid
 
-## Problem Statement
-Determine optimal locations for Meta's next data center (and other energy-intensive infrastructure like electrolyzers, EV/H2 hubs) based on comprehensive grid analysis.
+Built at the MIT Energy and Climate Hackathon 2025 (November 14 to 16) by Aalyaan and Snigdha.
 
-## Main Analysis
-**`siting_with_transmission.ipynb`** - Complete siting analysis with transmission data
+**Prompt:** where do we place a data center on the grid?
 
-### Features:
-- ✅ **82,071 substations** analyzed (substation-level granularity)
-- ✅ **12,612 power plants** from eGRID (including 93 nuclear plants)
-- ✅ **16-factor COMPREHENSIVE scoring model** ← COMPLETE! All 10 parameters covered
-- ✅ **⚡ SLACK CAPACITY analysis** - Filters for SPARE capacity, not just total
-- ✅ **🏗️ ZONING & LAND AVAILABILITY** ← NEW! Regrid data for buildable sites
-- ✅ **💧 WATER AVAILABILITY** ← NEW! Cooling water for data centers
-- ✅ **2GW data center feasibility filter** - Per RWE requirements
-- ✅ **Capacity factor matching** (nuclear, solar, wind) - Per RWE
-- ✅ **Cost savings analysis** ($M annual & 10-year) - Per RWE
-- ✅ **Zone demand filtering** - Avoids congested urban areas
-- ✅ **Transmission capacity** (≥2GW for data center)
-- ✅ **Generation capacity** (≥3GW nearby)
-- ✅ **Nuclear proximity** (high capacity factor)
-- ✅ **Energy costs** with $ quantification
-- ✅ **Co-location potential** (solar + wind + storage)
-- ✅ **Interactive visualizations** (Plotly + Matplotlib)
+Nexsite scores 12,612 US power plant sites on renewable access, emissions, capital
+cost, grid reliability, water, and transmission capacity, then ranks the best
+locations for three goals: lowest cost, lowest emissions, and highest reliability.
+An interactive Streamlit app lets you change the weights and see the map update.
 
-### COMPREHENSIVE 16-Factor Scoring Model:
-```
-⚡ Grid SLACK Capacity (25%): ← CRITICAL! Uses SPARE capacity
-  • Transmission SLACK (15%)
-  • Generation SLACK (10%)
+## How it works
 
-Capacity Factor Matching (18%): ← RWE Priority
-  • Effective Capacity w/ CF (11%)
-  • Nuclear Proximity (7%)
+1. **Build the dataset** (`notebooks/01_build_master_dataset.ipynb`). Each eGRID power
+   plant is matched to its nearest grid substation from PowerSimData (haversine
+   distance). Property values (mean within 3 miles) and water capacity are attached.
+   Output: `data/processed/power_plant_siting_master_data.csv`.
+2. **Score** (`notebooks/02_scoring_model.ipynb`, `app.py`). Six parameters, each 0 to 1:
+   P1 renewable proximity, P2 emissions, P3 capital investment, P4 reliability,
+   P5 water, P6 transmission capacity. Three category scores weight these parameters,
+   and a state diversity penalty keeps the top picks from clustering in one state.
+   Full formulas: [docs/algorithm.md](docs/algorithm.md).
+3. **Explore** (`app.py`). Adjust weights, view the top 3 per category and top 5
+   overall on a map, and see a rough 10-year cost estimate for a 2 GW facility.
 
-Economic Factors (17%):
-  • Energy Costs (9%)
-  • Congestion Risk (4%)
-  • Transmission Cost (4%)
+An earlier substation-level version of the model (12, then 16 factors, including
+slack capacity and zoning) lives in `notebooks/substation_siting_model.ipynb`, with
+its write-ups in `docs/archive/`.
 
-🏗️ Land Availability (10%): ← NEW! Zoning data
-  • Zoning Suitability (6%)
-  • Site Type Match (4%)
+## Data
 
-💧 Water Availability (10%): ← NEW! Cooling water
-  • Water Abundance (5%)
-  • Low Water Stress (3%)
-  • Potable Capacity (2%)
+| File | Source |
+| --- | --- |
+| `data/raw/egrid2023_plants.csv` | EPA eGRID plant file (PLNT23) |
+| `data/raw/usa_bus_features_2016.csv` | Substation features exported from Breakthrough Energy's PowerSimData USA grid |
+| `data/raw/synthetic_us_water_latlon_grid.csv` | **Synthetic.** Generated placeholder for water availability |
+| `data/raw/synthetic_regrid_parcel_grid.csv` | **Synthetic.** Generated placeholder for land parcels and zoning |
+| `data/raw/places_fmv_all.tif` | Property value raster, not included (125 MB): TODO source |
+| State tables in `app.py` | Electricity price (cents/kWh), SAIDI and SAIFI by state |
 
-🏙️ Zone Demand (8%): ← Avoids congested areas
-  • Lower Demand Score (8%)
+**Limitations.** The water (P5) and zoning inputs are synthetic placeholders made
+during the hackathon, so any score that uses them is illustrative, not real.
+Electricity price and reliability are state averages, not site-level values.
+Cost estimates are back-of-envelope.
 
-Co-Location Potential (8%):
-  • Solar Potential (5%)
-  • Wind Potential (3%)
+## Run it
 
-Plant-Level eGRID (4%):
-  • Plant Proximity (2%)
-  • eGRID Renewables (1%)
-  • Low Emissions (1%)
-```
-
-**🎉 COMPLETE COVERAGE: All 10 Parameters!**
-1. ✅ Transmission Capacity (slack)
-2. ✅ Generation Capacity (slack)
-3. ✅ Energy Costs
-4. ✅ Congestion Risk
-5. ✅ Renewable Energy
-6. ✅ Emissions
-7. ✅ Nuclear Proximity
-8. ✅ Co-location Potential
-9. ✅ **Land Availability (zoning)** ← NEW!
-10. ✅ **Water Availability (cooling)** ← NEW!
-
-**Aligned with RWE advisor priorities!**
-**Filters for 2GW data center feasibility!**
-**Includes cost savings analysis ($M)!**
-
-## Data Sources
-1. **usa_bus_features_2016.csv** - PowerSimData transmission substations (82K+ substations)
-2. **Untitled spreadsheet - PLNT23.csv** - EPA eGRID plant data (12K+ plants)
-3. **synthetic_regrid_parcel_grid.csv** - Regrid zoning data (200 sites) ← NEW!
-4. **synthetic_us_water_latlon_grid.csv** - US water availability grid (780 points) ← NEW!
-
-## Results
-- **meta_datacenter_top20_with_transmission_20251115_1651.csv** - Top 20 recommended locations
-- **all_substations_scored_20251115_1651.csv** - All scored substations
-
-## Key Findings
-Top 5 locations provide:
-- Exact substation coordinates (lat/lon to 6 decimals)
-- Transmission capacity (MW available)
-- Renewable energy percentage
-- Grid reliability metrics
-- CO2 intensity
-
-## Documentation
-- **ZONING_WATER_SUMMARY.md** - 🎉 LATEST! Complete 16-factor model ← READ THIS FIRST!
-- **ZONING_WATER_INTEGRATION_PLAN.md** - Detailed integration strategy
-- **SLACK_CAPACITY_UPDATE.md** - ⚡ Explains slack capacity analysis
-- **RWE_ALIGNMENT_SUMMARY.md** - RWE-aligned model details
-- **COMPREHENSIVE_MODEL_SUMMARY.md** - 12-factor model baseline
-- **GRANULARITY_SUMMARY.md** - Explains substation-level precision
-- **TRANSMISSION_DATA_SUMMARY.md** - PowerSimData capabilities
-- **MAP_VISUALIZATION_GUIDE.md** - How to use visualizations
-- **STATE_CODE_EXPLANATION.md** - Why zones are used instead of state codes
-
-## How to Run
-1. Open `siting_with_transmission.ipynb` in Jupyter/Cursor
-2. Click "Run All" or run cells sequentially
-3. View interactive maps and results
-4. Export data from generated CSV files
-
-## Requirements
 ```bash
-pip install pandas numpy plotly matplotlib scipy
+pip install -r requirements.txt
+streamlit run app.py
 ```
 
-## Answer
-**Where should Meta build their next data center?**
-
-See top 20 substations with:
-- Specific bus IDs (connection points)
-- Exact coordinates
-- Transmission capacity
-- Renewable energy availability
-- Grid infrastructure details
-
-**Granularity:** Substation-level (most precise available) - not county-level!
+To re-run the notebooks: `pip install -r requirements-notebooks.txt`. The raster is needed
+for notebook 01, and PowerSimData only for the scenario export cells at the end of
+the substation notebook.
 
 ## License
-MIT License - See LICENSE file
+
+MIT
