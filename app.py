@@ -11,34 +11,104 @@ DATA_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 # Page configuration
 st.set_page_config(
-    page_title="Nexsite - Data Center Siting Analysis",
-    page_icon="🏢",
+    page_title="Nexsite: Data Center Siting",
+    page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better styling
-st.markdown("""
+TEXT = '#E6EAED'
+MUTED = '#8B96A0'
+SURFACE = '#1A2129'
+RULE = '#2A333C'
+GOAL_COLORS = {
+    'Lowest Cost': '#E0A93B',
+    'Lowest Emissions': '#4FB37A',
+    'Highest Reliability': '#5B8DEF',
+}
+GOAL_SHORT = {'Lowest Cost': 'Cost', 'Lowest Emissions': 'Emissions', 'Highest Reliability': 'Reliability'}
+FACTORS = [
+    ('P1_Proximity_RE', 'Renewables nearby'),
+    ('P2_Emissions', 'Low emissions'),
+    ('P3_Capital_Investment', 'Low capital cost'),
+    ('P4_Reliability', 'Grid reliability'),
+    ('P5_Water', 'Water (synthetic data)'),
+    ('P6_Transmission_Capacity', 'Transmission capacity'),
+]
+DC_SIZE_MW = 2000
+
+st.markdown(f"""
     <style>
-    .main-header {
-        font-size: 3rem;
-        font-weight: bold;
-        color: #1f77b4;
-        text-align: center;
-        margin-bottom: 1rem;
-    }
-    .sub-header {
-        font-size: 1.2rem;
-        color: #666;
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-    .metric-card {
-        background-color: #f0f2f6;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin: 0.5rem 0;
-    }
+    @import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap');
+
+    .stApp {{ font-family: 'Public Sans', sans-serif; }}
+    h1, h2, h3, h4 {{ font-family: 'Public Sans', sans-serif !important; }}
+    .block-container {{ padding-top: 2.5rem; max-width: 1320px; }}
+
+    [data-testid="stAppDeployButton"], [data-testid="stMainMenu"], footer {{ display: none !important; }}
+    header[data-testid="stHeader"] {{ background: transparent; }}
+
+    .topbar {{ display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+               padding-bottom: 1rem; margin-bottom: 1.75rem; border-bottom: 1px solid {RULE}; }}
+    .brand {{ display: flex; align-items: center; gap: 0.6rem; }}
+    .brand .word {{ font-weight: 700; font-size: 1.15rem; color: {TEXT}; }}
+    .brand .tag {{ color: {MUTED}; font-size: 0.9rem; }}
+    .pill {{ border: 1px solid {RULE}; border-radius: 999px; padding: 0.25rem 0.75rem;
+             color: {MUTED}; font-size: 0.82rem; font-variant-numeric: tabular-nums; white-space: nowrap; }}
+    .pill b {{ color: {TEXT}; font-weight: 600; }}
+    .page-title {{ font-weight: 700; font-size: 1.9rem; line-height: 1.2; color: {TEXT}; margin: 0; }}
+    .page-sub {{ color: {MUTED}; font-size: 1rem; margin: 0.4rem 0 1.5rem 0; max-width: 64ch; }}
+
+    .panel {{ background: {SURFACE}; border: 1px solid {RULE}; border-radius: 12px;
+              padding: 1.25rem 1.4rem; margin-bottom: 1rem; }}
+    .hero {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: 1.25rem 1.5rem;
+             align-items: end; }}
+    .hero .lead {{ grid-column: span 2; min-width: 0; }}
+    .eyebrow {{ color: {MUTED}; font-size: 0.82rem; margin-bottom: 0.3rem; }}
+    .hero .place {{ font-weight: 700; font-size: 1.6rem; color: {TEXT}; line-height: 1.15; }}
+    .hero .near {{ color: {MUTED}; font-size: 0.9rem; margin-top: 0.2rem; white-space: nowrap;
+                   overflow: hidden; text-overflow: ellipsis; }}
+    .stat .v {{ font-weight: 700; font-size: 1.45rem; color: {TEXT}; font-variant-numeric: tabular-nums; }}
+
+    div[data-testid="stVerticalBlock"]:has(> div[data-testid="stElementContainer"] .panel-anchor) {{
+        background: {SURFACE}; border-color: {RULE} !important; border-radius: 12px; }}
+
+    .section-title {{ font-weight: 600; font-size: 1rem; color: {TEXT}; margin: 0 0 0.9rem 0; }}
+
+    .rank-table {{ display: grid; grid-template-columns: 1.5rem minmax(0, 1fr) repeat(3, 5.5rem) 4rem;
+                   column-gap: 0.75rem; align-items: baseline; font-variant-numeric: tabular-nums; }}
+    .rank-table > div {{ padding: 0.6rem 0; border-bottom: 1px solid {RULE}; }}
+    .rank-table .h {{ color: {MUTED}; font-size: 0.8rem; padding-top: 0; }}
+    .rank-table .num {{ text-align: right; }}
+    .rank-table .n {{ color: {MUTED}; }}
+    .rank-table .site {{ color: {TEXT}; font-weight: 600; white-space: nowrap; overflow: hidden;
+                         text-overflow: ellipsis; }}
+    .rank-table .site span {{ color: {MUTED}; font-weight: 400; margin-left: 0.5rem; }}
+    .rank-table .overall {{ color: {TEXT}; font-weight: 700; }}
+    .panel {{ container-type: inline-size; }}
+    @container (max-width: 34rem) {{
+        .rank-table {{ grid-template-columns: 1.5rem minmax(0, 1fr) 4rem; }}
+        .rank-table .g {{ display: none; }}
+    }}
+
+    .leader {{ display: grid; grid-template-columns: 1.5rem minmax(0, 1fr) auto; gap: 0.75rem;
+               padding: 0.5rem 0; border-bottom: 1px solid {RULE}; color: {TEXT}; }}
+    .leader .n {{ color: {MUTED}; }}
+    .leader .score {{ font-weight: 600; font-variant-numeric: tabular-nums; }}
+
+    .panels {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+               gap: 1.5rem 3rem; }}
+    .leader .site {{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+    .kv {{ display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 0.45rem 1rem; font-size: 0.9rem; }}
+    .kv dt {{ color: {MUTED}; }}
+    .kv dd {{ margin: 0; color: {TEXT}; font-variant-numeric: tabular-nums; }}
+    .meter {{ display: grid; grid-template-columns: 10rem minmax(2rem, 1fr) 2rem; gap: 0.5rem 0.75rem;
+              align-items: center; font-size: 0.85rem; color: {MUTED}; margin-bottom: 1.2rem; }}
+    .meter .track {{ height: 6px; background: {RULE}; border-radius: 3px; overflow: hidden; }}
+    .meter .track span {{ display: block; height: 100%; border-radius: 3px; }}
+    .meter .v {{ color: {TEXT}; text-align: right; font-variant-numeric: tabular-nums; }}
+    .cost-total {{ font-weight: 700; font-size: 2rem; color: {TEXT}; font-variant-numeric: tabular-nums; }}
+    .note {{ color: {MUTED}; font-size: 0.85rem; max-width: 72ch; }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -242,6 +312,7 @@ def select_top_with_state_diversity(df, score_col, top_n=3, penalty_factor=0.1):
         # If we haven't filled all slots yet, add this location
         if len(selected) < top_n:
             row_dict = row.to_dict()
+            row_dict["_source_index"] = idx
             row_dict[score_col + '_adjusted'] = adjusted_score
             selected.append(row_dict)
             
@@ -269,6 +340,7 @@ def select_top_with_state_diversity(df, score_col, top_n=3, penalty_factor=0.1):
                 
                 # Add current location
                 row_dict = row.to_dict()
+                row_dict["_source_index"] = idx
                 row_dict[score_col + '_adjusted'] = adjusted_score
                 selected.append(row_dict)
                 
@@ -280,131 +352,69 @@ def select_top_with_state_diversity(df, score_col, top_n=3, penalty_factor=0.1):
     # Convert back to DataFrame and sort by original score
     result_df = pd.DataFrame(selected)
     if len(result_df) > 0:
+        result_df = result_df.set_index("_source_index")
+        result_df.index.name = None
+    if len(result_df) > 0:
         result_df = result_df.nlargest(top_n, score_col)
     
     return result_df
 
+def site_label(row):
+    county = row.get('Plant county name')
+    county = str(county) if pd.notna(county) else 'Unknown county'
+    return f"{county}, {row.get('Plant state abbreviation', '')}"
+
 def create_map(df_scored, top3_per_category, top5_overall):
-    """Create interactive map with top locations"""
-    # Combine all locations to show
-    all_locations_list = []
-    
-    # Add top 3 from each category
+    """Map every scored site faintly, then the shortlisted sites on top."""
+    fig = go.Figure()
+
+    # Every plant site as a faint dot, so the grid's footprint is visible.
+    fig.add_trace(go.Scattergeo(
+        lat=df_scored['Plant latitude'], lon=df_scored['Plant longitude'],
+        mode='markers', marker=dict(size=2.5, color='#6B7680', opacity=0.35),
+        hoverinfo='skip', showlegend=False,
+    ))
+
+    def hover(df):
+        return [
+            f"<b>{site_label(r)}</b><br>"
+            f"<span style='color:{MUTED}'>{r.get('Plant name', '')}</span><br><br>"
+            f"Overall: <b>{r['Overall_Score']:.1f}</b><br>"
+            + '<br>'.join(f"{GOAL_SHORT[c]}: {r[c + '_Score']:.0f}" for c in GOAL_COLORS)
+            for _, r in df.iterrows()
+        ]
+
+    # Overall top 5 as rings, drawn under the goal dots so a site in both shows a ringed dot.
+    fig.add_trace(go.Scattergeo(
+        lat=top5_overall['Plant latitude'], lon=top5_overall['Plant longitude'],
+        mode='markers', name='Top 5 overall',
+        marker=dict(size=22, color='rgba(0,0,0,0)', line=dict(color=TEXT, width=2)),
+        hovertext=hover(top5_overall), hoverinfo='text',
+    ))
+
     for cat_name, top_df in top3_per_category.items():
-        top_df_copy = top_df.copy()
-        top_df_copy['Category'] = cat_name
-        all_locations_list.append(top_df_copy)
-    
-    # Add top 5 overall
-    top5_copy = top5_overall.copy()
-    top5_copy['Category'] = 'Top 5 Overall'
-    all_locations_list.append(top5_copy)
-    
-    # Combine and remove duplicates (keep first occurrence)
-    all_locations = pd.concat(all_locations_list)
-    all_locations = all_locations.drop_duplicates(
-        subset=['Plant county name', 'Plant latitude', 'Plant longitude'],
-        keep='first'
-    )
-    
-    # Update category to show all categories a plant belongs to
-    # First, collect all categories for each unique plant
-    plant_categories = {}
-    for cat_name, top_df in top3_per_category.items():
-        for idx, row in top_df.iterrows():
-            plant_key = (row.get('Plant county name', 'Unknown'), row['Plant latitude'], row['Plant longitude'])
-            if plant_key not in plant_categories:
-                plant_categories[plant_key] = set()
-            plant_categories[plant_key].add(cat_name)
-    
-    # Add top 5 overall
-    for idx, row in top5_overall.iterrows():
-        plant_key = (row.get('Plant county name', 'Unknown'), row['Plant latitude'], row['Plant longitude'])
-        if plant_key not in plant_categories:
-            plant_categories[plant_key] = set()
-        plant_categories[plant_key].add('Top 5 Overall')
-    
-    # Update the Category column
-    all_locations['Category'] = all_locations.apply(
-        lambda row: ', '.join(sorted(plant_categories.get(
-            (row.get('Plant county name', 'Unknown'), row['Plant latitude'], row['Plant longitude']), 
-            [row['Category']]
-        ))),
-        axis=1
-    )
-    
-    # Create a color for each unique category combination
-    unique_categories = sorted(all_locations['Category'].unique())
-    colors = ['#FF6B6B', '#4ECDC4', '#95E1D3', '#F38181', '#FFD93D', '#6BCF7F', '#A8E6CF', '#FF8B94']
-    color_map = {cat: colors[i % len(colors)] for i, cat in enumerate(unique_categories)}
-    
-    # Create map
-    fig = px.scatter_geo(
-        all_locations,
-        lat='Plant latitude',
-        lon='Plant longitude',
-        size='Overall_Score',
-        color='Category',
-        hover_name='Plant county name',
-        hover_data={
-            'Plant county name': True,
-            'Plant state abbreviation': True,
-            'Plant name': True,
-            'Lowest Cost_Score': ':.1f',
-            'Lowest Emissions_Score': ':.1f',
-            'Highest Reliability_Score': ':.1f',
-            'Overall_Score': ':.1f',
-            'Plant latitude': ':.4f',
-            'Plant longitude': ':.4f',
-            'Category': False
-        },
-        color_discrete_map=color_map,
-        # title='🏢 Nexsite - Top Potential Data Center Locations<br><sub>Interactive Multi-Criteria Siting Analysis</sub>',
-        title='Nexsite - Top Potential Data Center Locations<br><sub>Interactive Multi-Criteria Siting Analysis</sub>',
-        scope='usa',
-        height=800,
-        size_max=30
-    )
-    
-    # Add labels for top locations
-    for idx, row in all_locations.iterrows():
-        county_name = row.get('Plant county name', 'Unknown')
-        if pd.notna(county_name):
-            county_name = str(county_name)[:20] + '...' if len(str(county_name)) > 20 else str(county_name)
-        else:
-            county_name = 'Unknown'
-        label_text = f"{county_name}<br>{row['Plant state abbreviation']}"
-        
         fig.add_trace(go.Scattergeo(
-            lon=[row['Plant longitude']],
-            lat=[row['Plant latitude']],
-            text=label_text,
-            mode='text',
-            textfont=dict(size=9, color='black', family='Arial'),
-            showlegend=False,
-            hoverinfo='skip'
+            lat=top_df['Plant latitude'], lon=top_df['Plant longitude'],
+            mode='markers', name=f"Top 3 {GOAL_SHORT[cat_name].lower()}",
+            marker=dict(size=11, color=GOAL_COLORS[cat_name], line=dict(color='#0E1117', width=1)),
+            hovertext=hover(top_df), hoverinfo='text',
         ))
-    
-    fig.update_layout(
-        geo=dict(
-            bgcolor='rgba(0,0,0,0)',
-            projection_scale=1.1
-        ),
-        font=dict(size=11),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=-0.15,
-            xanchor="center",
-            x=0.5,
-            font=dict(size=9),
-            itemsizing='constant',
-            itemwidth=30
-        ),
-        margin=dict(l=0, r=0, t=80, b=100),
-        height=800
+
+    fig.update_geos(
+        scope='usa', projection_type='albers usa',
+        showland=True, landcolor=SURFACE, showlakes=False,
+        subunitcolor=RULE, subunitwidth=0.8, countrycolor=RULE,
+        bgcolor='rgba(0,0,0,0)',
     )
-    
+    fig.update_layout(
+        height=460, margin=dict(l=0, r=0, t=0, b=0), dragmode=False,
+        paper_bgcolor='rgba(0,0,0,0)',
+        font=dict(family='Public Sans, sans-serif', color=MUTED, size=12),
+        legend=dict(orientation='h', yanchor='top', y=1.0, xanchor='left', x=0.0,
+                    bgcolor='rgba(0,0,0,0)', font=dict(color=MUTED)),
+        hoverlabel=dict(bgcolor=SURFACE, bordercolor=RULE,
+                        font=dict(family='Public Sans, sans-serif', color=TEXT)),
+    )
     return fig
 
 def estimate_total_cost(row, dc_size_mw=2000):
@@ -428,24 +438,24 @@ def estimate_total_cost(row, dc_size_mw=2000):
     # Base cost scales with capacity and distance
     transmission_base_cost_per_km = 1240000  # $1.24M per km base cost
     transmission_cost_per_mw_per_km = 200000  # Additional $200k per MW per km for capacity
-    land_cost_per_acre_multiplier = 0.1  # Assume 10% of property value per acre (rough estimate)
-    
+    hectares_per_acre = 0.404686
+
     costs = {}
-    
+
     # 1. Land/Property Costs
-    property_value = row.get('mean_property_value_3mi', 0)
-    if pd.notna(property_value) and property_value > 0:
-        # Estimate land cost (property value is average in 3mi radius, use as proxy)
-        estimated_land_cost = property_value * land_cost_per_acre_multiplier * land_acres_needed
-        costs['Land Acquisition'] = estimated_land_cost
+    # mean_property_value_3mi comes from the PLACES fair market value raster
+    # (Nolte 2020), which stores ln(USD per hectare) in Jan 2017 dollars.
+    log_value_per_ha = row.get('mean_property_value_3mi', np.nan)
+    if pd.notna(log_value_per_ha):
+        value_per_acre = np.exp(log_value_per_ha) * hectares_per_acre
+        costs['Land Acquisition'] = value_per_acre * land_acres_needed
     else:
         costs['Land Acquisition'] = 5000000  # Default $5M if no data
-    
+
     # 2. Annual Electricity Costs
-    electricity_rate = row.get('Electricity_Cost_State_cents_per_kWh', 10.0) / 100  # Convert cents to dollars
-    annual_energy_mwh = dc_size_mw * electricity_utilization * hours_per_year / 1000
-    annual_electricity_cost = annual_energy_mwh * electricity_rate * 1000  # Convert back to kWh
-    costs['Annual Electricity'] = annual_electricity_cost
+    electricity_rate = row.get('Electricity_Cost_State_cents_per_kWh', 10.0) / 100  # $/kWh
+    annual_energy_kwh = dc_size_mw * 1000 * electricity_utilization * hours_per_year
+    costs['Annual Electricity'] = annual_energy_kwh * electricity_rate
     
     # 3. Transmission Line Construction Costs (one-time)
     # This is a major cost component - building new transmission lines for 2GW can cost $500M-$2B+
@@ -513,330 +523,217 @@ def estimate_total_cost(row, dc_size_mw=2000):
     
     return costs
 
-def get_plant_details(row):
-    """Get detailed information about a plant"""
-    details = {
-        'County': row.get('Plant county name', 'N/A'),
-        'Plant Name': row.get('Plant name', 'N/A'),
-        'State': row.get('Plant state abbreviation', 'N/A'),
-        'Coordinates': f"{row.get('Plant latitude', 0):.4f}°N, {row.get('Plant longitude', 0):.4f}°W",
-        'Fuel Type': row.get('Plant primary fuel category', 'N/A'),
-        'Capacity': f"{row.get('Plant nameplate capacity (MW)', 0):,.0f} MW",
-        'Scores': {
-            'Lowest Cost': f"{row.get('Lowest Cost_Score', 0):.1f}/100",
-            'Lowest Emissions': f"{row.get('Lowest Emissions_Score', 0):.1f}/100",
-            'Highest Reliability': f"{row.get('Highest Reliability_Score', 0):.1f}/100",
-            'Overall': f"{row.get('Overall_Score', 0):.1f}/100"
-        },
-        'Parameters': {
-            'Proximity to RE': f"{row.get('P1_Proximity_RE', 0):.3f}",
-            'Emissions': f"{row.get('P2_Emissions', 0):.3f}",
-            'Capital Investment': f"{row.get('P3_Capital_Investment', 0):.3f}",
-            'Reliability': f"{row.get('P4_Reliability', 0):.3f}",
-            'Water': f"{row.get('P5_Water', 0):.3f}",
-            'Transmission Capacity': f"{row.get('P6_Transmission_Capacity', 0):.3f}"
-        },
-        'Transmission': {
-            'Line Capacity': f"{row.get('bus_sum_line_capacity_MW', 0):,.0f} MW",
-            'Number of Lines': f"{row.get('bus_num_incident_lines', 0):.0f}",
-            'Distance to RE Plant': f"{row.get('bus_dist_to_nearest_renewable_plant_km', 0):.1f} km"
-        },
-        'Economics': {
-            'Electricity Cost': f"{row.get('Electricity_Cost_State_cents_per_kWh', 0):.2f} ¢/kWh",
-            'Property Value (3mi)': f"${row.get('mean_property_value_3mi', 0):,.0f}" if pd.notna(row.get('mean_property_value_3mi')) else 'N/A'
-        },
-        'Cost Estimates': estimate_total_cost(row, dc_size_mw=2000)
-    }
-    return details
+@st.cache_data
+def compute_tco(df):
+    """10-year TCO per site. Independent of the weights, so it is computed once."""
+    return pd.Series([estimate_total_cost(r, dc_size_mw=DC_SIZE_MW)['10-Year TCO'] for _, r in df.iterrows()],
+                     index=df.index)
+
+def money(x):
+    if abs(x) >= 1e9:
+        return f"${x / 1e9:,.2f}B"
+    if abs(x) >= 1e6:
+        return f"${x / 1e6:,.1f}M"
+    return f"${x:,.0f}"
+
+def meters(items):
+    """items: (label, value 0-100, color). Rendered as labeled horizontal bars."""
+    html = '<div class="meter">'
+    for label, v, color in items:
+        html += (f'<div>{label}</div><div class="track"><span style="width:{max(v, 0):.0f}%;'
+                 f'background:{color}"></span></div><div class="v">{v:.0f}</div>')
+    return html + '</div>'
+
+def rank_list(top_df):
+    html = '<div class="rank-table"><div class="h"></div><div class="h">Site</div>'
+    html += ''.join(f'<div class="h num g">{GOAL_SHORT[c]}</div>' for c in GOAL_COLORS)
+    html += '<div class="h num">Overall</div>'
+    for rank, (_, row) in enumerate(top_df.iterrows(), 1):
+        html += (f'<div class="n">{rank}</div>'
+                 f'<div class="site">{site_label(row)}<span>{row.get("Plant name", "")}</span></div>')
+        html += ''.join(f'<div class="num g" style="color:{GOAL_COLORS[c]}">{row[c + "_Score"]:.0f}</div>'
+                        for c in GOAL_COLORS)
+        html += f'<div class="num overall">{row["Overall_Score"]:.1f}</div>'
+    return html + '</div>'
+
+def leader_list(top_df, cat):
+    html = ''
+    for rank, (_, row) in enumerate(top_df.iterrows(), 1):
+        html += (f'<div class="leader"><div class="n">{rank}</div><div class="site">{site_label(row)}</div>'
+                 f'<div class="score" style="color:{GOAL_COLORS[cat]}">{row[cat + "_Score"]:.1f}</div></div>')
+    return html
+
+DEFAULT_WEIGHTS = {
+    'lc': [0.10, 0.00, 0.60, 0.10, 0.20, 0.00],
+    'le': [0.20, 0.60, 0.00, 0.10, 0.10, 0.00],
+    'hr': [0.20, 0.00, 0.10, 0.60, 0.10, 0.00],
+}
+
+LOGO = ('<svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">'
+        '<rect width="28" height="28" rx="7" fill="#5B8DEF"/>'
+        '<path d="M15.5 5 8 16h5l-1.5 7L19 12h-5z" fill="#0E1117"/></svg>')
+
+def reset_weights():
+    for prefix, values in DEFAULT_WEIGHTS.items():
+        for (code, _), v in zip(FACTORS, values):
+            st.session_state[f'{prefix}_{code}'] = v
+
+def factor_sliders(prefix):
+    weights = [st.slider(label, 0.0, 1.0, default, 0.05, key=f'{prefix}_{code}')
+               for (code, label), default in zip(FACTORS, DEFAULT_WEIGHTS[prefix])]
+    total = sum(weights)
+    return [w / total for w in weights] if total > 0 else weights
+
+def panel(title, body):
+    return f'<div class="panel"><div class="section-title">{title}</div>{body}</div>'
 
 # Main app
 def main():
-    # Header
-    st.markdown('<div class="main-header">🏢 Nexsite</div>', unsafe_allow_html=True)
-    # st.markdown('<div class="main-header">Nexsite</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Data Center Placement Multi-Criteria Siting Analysis<br><em style="font-size: 1.0rem; color: #888;">Find what\'s next.</em></div>', unsafe_allow_html=True)
-    
-    # Load data
-    with st.spinner("Loading data... This may take a moment."):
-        df = load_data()
-        df = add_state_data(df)
-    
-    st.success(f"✓ Loaded {len(df):,} power plants")
-    
-    # Sidebar for category weights only
-    st.sidebar.header("📊 Category Weights")
-    st.sidebar.markdown("Weight of each parameter in each category:")
-    
-    st.sidebar.subheader("Lowest Cost")
-    lc_p1 = st.sidebar.slider("P1 (RE Proximity)", 0.0, 1.0, 0.10, 0.05)
-    lc_p2 = st.sidebar.slider("P2 (Emissions)", 0.0, 1.0, 0.00, 0.05)
-    lc_p3 = st.sidebar.slider("P3 (Capital)", 0.0, 1.0, 0.60, 0.05)
-    lc_p4 = st.sidebar.slider("P4 (Reliability)", 0.0, 1.0, 0.10, 0.05)
-    lc_p5 = st.sidebar.slider("P5 (Water)", 0.0, 1.0, 0.20, 0.05)
-    lc_p6 = st.sidebar.slider("P6 (Transmission Capacity)", 0.0, 1.0, 0.00, 0.05)
-    lc_total = lc_p1 + lc_p2 + lc_p3 + lc_p4 + lc_p5 + lc_p6
-    if lc_total > 0:
-        lc_p1, lc_p2, lc_p3, lc_p4, lc_p5, lc_p6 = lc_p1/lc_total, lc_p2/lc_total, lc_p3/lc_total, lc_p4/lc_total, lc_p5/lc_total, lc_p6/lc_total
-    
-    st.sidebar.subheader("Lowest Emissions")
-    le_p1 = st.sidebar.slider("P1 (RE Proximity)", 0.0, 1.0, 0.20, 0.05, key='le_p1')
-    le_p2 = st.sidebar.slider("P2 (Emissions)", 0.0, 1.0, 0.60, 0.05, key='le_p2')
-    le_p3 = st.sidebar.slider("P3 (Capital)", 0.0, 1.0, 0.00, 0.05, key='le_p3')
-    le_p4 = st.sidebar.slider("P4 (Reliability)", 0.0, 1.0, 0.10, 0.05, key='le_p4')
-    le_p5 = st.sidebar.slider("P5 (Water)", 0.0, 1.0, 0.10, 0.05, key='le_p5')
-    le_p6 = st.sidebar.slider("P6 (Transmission Capacity)", 0.0, 1.0, 0.00, 0.05, key='le_p6')
-    le_total = le_p1 + le_p2 + le_p3 + le_p4 + le_p5 + le_p6
-    if le_total > 0:
-        le_p1, le_p2, le_p3, le_p4, le_p5, le_p6 = le_p1/le_total, le_p2/le_total, le_p3/le_total, le_p4/le_total, le_p5/le_total, le_p6/le_total
-    
-    st.sidebar.subheader("Highest Reliability")
-    hr_p1 = st.sidebar.slider("P1 (RE Proximity)", 0.0, 1.0, 0.20, 0.05, key='hr_p1')
-    hr_p2 = st.sidebar.slider("P2 (Emissions)", 0.0, 1.0, 0.00, 0.05, key='hr_p2')
-    hr_p3 = st.sidebar.slider("P3 (Capital)", 0.0, 1.0, 0.10, 0.05, key='hr_p3')
-    hr_p4 = st.sidebar.slider("P4 (Reliability)", 0.0, 1.0, 0.60, 0.05, key='hr_p4')
-    hr_p5 = st.sidebar.slider("P5 (Water)", 0.0, 1.0, 0.10, 0.05, key='hr_p5')
-    hr_p6 = st.sidebar.slider("P6 (Transmission Capacity)", 0.0, 1.0, 0.00, 0.05, key='hr_p6')
-    hr_total = hr_p1 + hr_p2 + hr_p3 + hr_p4 + hr_p5 + hr_p6
-    if hr_total > 0:
-        hr_p1, hr_p2, hr_p3, hr_p4, hr_p5, hr_p6 = hr_p1/hr_total, hr_p2/hr_total, hr_p3/hr_total, hr_p4/hr_total, hr_p5/hr_total, hr_p6/hr_total
-    
-    # Build weight dictionaries with default values for P1-P5
-    # Default P1 weights
-    p1_dist, p1_share, p1_cap = 0.40, 0.35, 0.25
-    
-    # Default P2 weights
-    p2_co2e, p2_co2 = 0.70, 0.30
-    p2_nox, p2_so2 = 0.50, 0.50
-    p2_climate, p2_air = 0.75, 0.25
-    
-    # Default P3 weights
-    p3_land, p3_trans, p3_elec = 0.40, 0.40, 0.20
-    p3_trans_dist, p3_trans_cap = 0.50, 0.50
-    
-    # Default P4 weights
-    p4_saidi, p4_saifi, p4_degree, p4_cap = 0.35, 0.35, 0.15, 0.15
-    
-    # Default P5 weights
-    p5_potable, p5_lower48 = 0.90, 0.10
-    
-    param_weights = {
-        'P1_Proximity_RE': {'dist': p1_dist, 'share': p1_share, 'cap': p1_cap},
-        'P2_Emissions': {
-            'CO2e': p2_co2e, 'CO2': p2_co2, 'NOx': p2_nox, 'SO2': p2_so2,
-            'climate': p2_climate, 'air': p2_air
-        },
-        'P3_Capital_Investment': {
-            'land': p3_land, 'trans': p3_trans, 'elec_cost': p3_elec,
-            'trans_dist': p3_trans_dist, 'trans_cap': p3_trans_cap
-        },
-        'P4_Reliability': {'SAIDI': p4_saidi, 'SAIFI': p4_saifi, 'degree': p4_degree, 'cap': p4_cap},
-        'P5_Water': {'potable': p5_potable, 'lower48': p5_lower48}
-    }
-    
-    category_weights = {
-        'Lowest Cost': [lc_p1, lc_p2, lc_p3, lc_p4, lc_p5, lc_p6],
-        'Lowest Emissions': [le_p1, le_p2, le_p3, le_p4, le_p5, le_p6],
-        'Highest Reliability': [hr_p1, hr_p2, hr_p3, hr_p4, hr_p5, hr_p6]
-    }
-    
-    # State diversity penalty is fixed at 0.5
-    penalty_factor = 0.5
-    
-    # Calculate scores
-    with st.spinner("Calculating scores..."):
-        df_scored = score_plants(df, param_weights, category_weights)
-    
-    # Calculate median costs for comparison
-    with st.spinner("Calculating cost estimates..."):
-        all_costs = []
-        for idx, row in df_scored.iterrows():
-            costs = estimate_total_cost(row, dc_size_mw=2000)
-            all_costs.append(costs.get('10-Year TCO', 0))
-        
-        median_tco = 0
-        if all_costs and len(all_costs) > 0:
-            median_tco = float(np.median(all_costs))
-            st.session_state['median_tco'] = median_tco  # Store in session state for access
-        else:
-            st.session_state['median_tco'] = 0
-    
-    # Retrieve median from session state if available
-    median_tco = st.session_state.get('median_tco', 0)
-    
-    # Get top locations with state diversity penalty
-    top3_cost = select_top_with_state_diversity(df_scored, 'Lowest Cost_Score', top_n=3, penalty_factor=penalty_factor)
-    top3_emissions = select_top_with_state_diversity(df_scored, 'Lowest Emissions_Score', top_n=3, penalty_factor=penalty_factor)
-    top3_reliability = select_top_with_state_diversity(df_scored, 'Highest Reliability_Score', top_n=3, penalty_factor=penalty_factor)
-    top5_overall = select_top_with_state_diversity(df_scored, 'Overall_Score', top_n=5, penalty_factor=penalty_factor)
-    
-    top3_per_category = {
-        'Lowest Cost': top3_cost,
-        'Lowest Emissions': top3_emissions,
-        'Highest Reliability': top3_reliability
-    }
-    
-    # Main content
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        # st.header("🗺️ Interactive Map")
-        st.header("Interactive Map")
+    with st.spinner("Loading plant data"):
+        df = add_state_data(load_data())
 
-        fig = create_map(df_scored, top3_per_category, top5_overall)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        # st.header("📊 Top Locations")
-        st.header("Top Locations")
-        
-        # Top 3 per category
-        for cat_name, top_df in top3_per_category.items():
-            with st.expander(f"🏆 Top 3: {cat_name}", expanded=False):
-                for idx, (i, row) in enumerate(top_df.iterrows(), 1):
-                    county_name = row.get('Plant county name', 'Unknown')
-                    st.write(f"**#{idx}** {county_name}")
-                    st.write(f"Score: {row[cat_name + '_Score']:.1f}/100")
-                    st.write(f"State: {row['Plant state abbreviation']}")
-                    # Show cost estimate for Lowest Cost category
-                    if cat_name == 'Lowest Cost':
-                        cost_est = estimate_total_cost(row, dc_size_mw=2000)
-                        location_tco = cost_est.get('10-Year TCO', 0)
-                        st.write(f"**Est. 10-Year TCO:** ${location_tco:,.0f}")
-                        if median_tco > 0:
-                            savings = median_tco - location_tco
-                            savings_pct = (savings / median_tco * 100) if median_tco > 0 else 0
-                            savings_color = "green" if savings > 0 else "red"
-                            st.markdown(f"**vs. Median:** <span style='color: {savings_color}'>{'$' + f'{savings:+,.0f}'} ({savings_pct:+.1f}%)</span>", unsafe_allow_html=True)
-                            st.caption(f"Median TCO: ${median_tco:,.0f}")
-                    if st.button(f"View Details", key=f"details_{cat_name}_{i}"):
-                        st.session_state['selected_plant'] = i
-                    st.write("---")
-        
-        # Top 5 Overall
-        with st.expander("🌟 Top 5 Overall", expanded=True):
-            for idx, (i, row) in enumerate(top5_overall.iterrows(), 1):
-                county_name = row.get('Plant county name', 'Unknown')
-                st.write(f"**#{idx}** {county_name}")
-                st.write(f"Overall Score: {row['Overall_Score']:.1f}/100")
-                st.write(f"State: {row['Plant state abbreviation']}")
-                # Show cost estimate
-                cost_est = estimate_total_cost(row, dc_size_mw=2000)
-                location_tco = cost_est.get('10-Year TCO', 0)
-                st.write(f"**Est. 10-Year TCO:** ${location_tco:,.0f}")
-                if median_tco > 0:
-                    savings = median_tco - location_tco
-                    savings_pct = (savings / median_tco * 100) if median_tco > 0 else 0
-                    savings_color = "green" if savings > 0 else "red"
-                    st.markdown(f"**vs. Median:** <span style='color: {savings_color}'>{'$' + f'{savings:+,.0f}'} ({savings_pct:+.1f}%)</span>", unsafe_allow_html=True)
-                    st.caption(f"Median TCO: ${median_tco:,.0f}")
-                if st.button(f"View Details", key=f"details_overall_{i}"):
-                    st.session_state['selected_plant'] = i
-                st.write("---")
-    
-    # Plant details section
-    if 'selected_plant' in st.session_state and st.session_state['selected_plant'] is not None:
-        plant_idx = st.session_state['selected_plant']
-        if plant_idx in df_scored.index:
-            st.header("📋 Plant Details")
-            plant_row = df_scored.loc[plant_idx]
-            details = get_plant_details(plant_row)
-            
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.subheader("Basic Info")
-                st.write(f"**County:** {details['County']}")
-                st.write(f"**State:** {details['State']}")
-                st.write(f"**Plant Name:** {details['Plant Name']}")
-                st.write(f"**Coordinates:** {details['Coordinates']}")
-                st.write(f"**Fuel Type:** {details['Fuel Type']}")
-                st.write(f"**Capacity:** {details['Capacity']}")
-            
-            with col2:
-                st.subheader("Scores")
-                for k, v in details['Scores'].items():
-                    st.write(f"**{k}:** {v}")
-            
-            with col3:
-                st.subheader("Parameters")
-                for k, v in details['Parameters'].items():
-                    st.write(f"**{k}:** {v}")
-            
-            st.subheader("Additional Information")
-            col1, col2 = st.columns(2)
-            with col1:
-                st.write("**Transmission:**")
-                for k, v in details['Transmission'].items():
-                    st.write(f"- {k}: {v}")
-            with col2:
-                st.write("**Economics:**")
-                for k, v in details['Economics'].items():
-                    st.write(f"- {k}: {v}")
-            
-            st.subheader("💰 Cost Estimates (2GW Data Center)")
-            cost_col1, cost_col2, cost_col3 = st.columns(3)
-            with cost_col1:
-                st.write("**One-Time Costs:**")
-                st.write(f"- Land: ${details['Cost Estimates'].get('Land Acquisition', 0):,.0f}")
-                trans_line = details['Cost Estimates'].get('Transmission Line Construction', 0)
-                substation = details['Cost Estimates'].get('Substation/Switchyard', 0)
-                trans_type = details['Cost Estimates'].get('Transmission Cost Type', 'N/A')
-                st.write(f"- Transmission Lines: ${trans_line:,.0f}")
-                st.caption(f"  ({trans_type})")
-                st.write(f"- Substations: ${substation:,.0f}")
-                st.write(f"- **Total Transmission:** ${details['Cost Estimates'].get('Transmission Connection (One-time)', 0):,.0f}")
-                st.write(f"- **Total One-Time:** ${details['Cost Estimates'].get('Total One-Time Costs', 0):,.0f}")
-            with cost_col2:
-                st.write("**Annual Operating Costs:**")
-                st.write(f"- Electricity: ${details['Cost Estimates'].get('Annual Electricity', 0):,.0f}")
-                st.write(f"- Water: ${details['Cost Estimates'].get('Annual Water', 0):,.0f}")
-                st.write(f"- **Total:** ${details['Cost Estimates'].get('Total Annual Operating Costs', 0):,.0f}")
-            with cost_col3:
-                st.write("**Total Cost of Ownership:**")
-                location_tco = details['Cost Estimates'].get('10-Year TCO', 0)
-                st.write(f"- **10-Year TCO:** ${location_tco:,.0f}")
-                if median_tco > 0:
-                    savings = median_tco - location_tco
-                    savings_pct = (savings / median_tco * 100) if median_tco > 0 else 0
-                    st.write(f"- **Median TCO:** ${median_tco:,.0f}")
-                    st.write(f"- **vs. Median:** ${savings:+,.0f} ({savings_pct:+.1f}%)")
-            st.caption("*Estimates assume 2GW (2000MW) facility, 85% utilization")
-            
-            if st.button("Close Details"):
-                st.session_state['selected_plant'] = None
-                st.rerun()
-    
-    # Statistics
-    st.header("📈 Analysis Statistics")
-    col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
-        st.metric("Total Plants", f"{len(df_scored):,}")
-    with col2:
-        st.metric("Avg Overall Score", f"{df_scored['Overall_Score'].mean():.1f}")
-    with col3:
-        st.metric("Max Overall Score", f"{df_scored['Overall_Score'].max():.1f}")
-    with col4:
-        st.metric("Min Overall Score", f"{df_scored['Overall_Score'].min():.1f}")
-    with col5:
-        if median_tco > 0:
-            st.metric("Median 10-Year TCO (2GW)", f"${median_tco:,.0f}")
-        else:
-            st.metric("Median 10-Year TCO (2GW)", "Calculating...")
-    
-    # Export
-    st.header("💾 Export Results")
-    export_df = pd.concat([
-        top3_cost[['Plant county name', 'Plant name', 'Plant state abbreviation', 'Plant latitude', 'Plant longitude', 'Lowest Cost_Score']],
-        top3_emissions[['Plant county name', 'Plant name', 'Plant state abbreviation', 'Plant latitude', 'Plant longitude', 'Lowest Emissions_Score']],
-        top3_reliability[['Plant county name', 'Plant name', 'Plant state abbreviation', 'Plant latitude', 'Plant longitude', 'Highest Reliability_Score']],
-        top5_overall[['Plant county name', 'Plant name', 'Plant state abbreviation', 'Plant latitude', 'Plant longitude', 'Overall_Score']]
-    ]).drop_duplicates()
-    
-    csv = export_df.to_csv(index=False)
+    # Sidebar: one tab of factor weights per goal
+    with st.sidebar:
+        st.markdown('<div class="section-title">Goal weights</div>', unsafe_allow_html=True)
+        st.caption("Each goal blends six site factors. Weights are rescaled to add up to 1.")
+        tab_cost, tab_emis, tab_rel = st.tabs(['Cost', 'Emissions', 'Reliability'])
+        with tab_cost:
+            lc = factor_sliders('lc')
+        with tab_emis:
+            le = factor_sliders('le')
+        with tab_rel:
+            hr = factor_sliders('hr')
+        st.button("Reset to defaults", on_click=reset_weights, use_container_width=True)
+
+    # Sub-weights inside each factor stay fixed (see docs/algorithm.md)
+    param_weights = {
+        'P1_Proximity_RE': {'dist': 0.40, 'share': 0.35, 'cap': 0.25},
+        'P2_Emissions': {'CO2e': 0.70, 'CO2': 0.30, 'NOx': 0.50, 'SO2': 0.50, 'climate': 0.75, 'air': 0.25},
+        'P3_Capital_Investment': {'land': 0.40, 'trans': 0.40, 'elec_cost': 0.20,
+                                  'trans_dist': 0.50, 'trans_cap': 0.50},
+        'P4_Reliability': {'SAIDI': 0.35, 'SAIFI': 0.35, 'degree': 0.15, 'cap': 0.15},
+        'P5_Water': {'potable': 0.90, 'lower48': 0.10},
+    }
+    category_weights = {'Lowest Cost': lc, 'Lowest Emissions': le, 'Highest Reliability': hr}
+
+    df_scored = score_plants(df, param_weights, category_weights)
+    df_scored['TCO'] = compute_tco(df)
+    median_tco = float(df_scored['TCO'].median())
+
+    penalty_factor = 0.5  # State diversity penalty
+    top3_per_category = {
+        cat: select_top_with_state_diversity(df_scored, cat + '_Score', top_n=3, penalty_factor=penalty_factor)
+        for cat in GOAL_COLORS
+    }
+    top5_overall = select_top_with_state_diversity(df_scored, 'Overall_Score', top_n=5, penalty_factor=penalty_factor)
+
+    # Top bar and page heading
+    st.markdown(
+        f'<div class="topbar"><div class="brand">{LOGO}<span class="word">Nexsite</span>'
+        f'<span class="tag">Data center siting</span></div>'
+        f'<div class="pill"><b>{len(df):,}</b> sites scored</div></div>'
+        '<div class="page-title">Where do we place a data center on the grid?</div>'
+        '<p class="page-sub">Every US power plant site, scored on cost, emissions, and reliability. '
+        'Change the goal weights in the sidebar to see the ranking update.</p>',
+        unsafe_allow_html=True)
+
+    # Recommended site
+    best = top5_overall.iloc[0]
+    best_cost = estimate_total_cost(best, dc_size_mw=DC_SIZE_MW)['10-Year TCO']
+    fuel = str(best.get('Plant primary fuel category', '')).lower()
+    stats = [('Overall', f"{best['Overall_Score']:.1f}", TEXT)]
+    stats += [(GOAL_SHORT[c], f"{best[c + '_Score']:.0f}", GOAL_COLORS[c]) for c in GOAL_COLORS]
+    stats += [('10-year cost', money(best_cost), TEXT)]
+    st.markdown(
+        '<div class="panel hero"><div class="lead"><div class="eyebrow">Recommended site</div>'
+        f'<div class="place">{site_label(best)}</div>'
+        f'<div class="near">Near {best.get("Plant name", "")}, {fuel} plant</div></div>'
+        + ''.join(f'<div class="stat"><div class="eyebrow">{k}</div><div class="v" style="color:{c}">{v}</div></div>'
+                  for k, v, c in stats)
+        + '</div>', unsafe_allow_html=True)
+
+    # Map
+    with st.container(border=True):
+        st.markdown('<span class="panel-anchor"></span><div class="section-title">Shortlisted sites</div>',
+                    unsafe_allow_html=True)
+        st.plotly_chart(create_map(df_scored, top3_per_category, top5_overall),
+                        use_container_width=True, config={'displayModeBar': False, 'scrollZoom': False})
+
+    # Rankings
+    st.markdown(panel('Top 5 overall', rank_list(top5_overall)), unsafe_allow_html=True)
+    st.markdown(panel('Leaders by goal', '<div class="panels">' + ''.join(
+        f'<div><div style="font-weight:600;color:{GOAL_COLORS[cat]};margin-bottom:0.25rem">{cat}</div>'
+        f'{leader_list(top_df, cat)}</div>'
+        for cat, top_df in top3_per_category.items()) + '</div>'), unsafe_allow_html=True)
+
+    # Site inspector
+    shortlist = {}
+    for rank, (i, row) in enumerate(top5_overall.iterrows(), 1):
+        shortlist.setdefault(i, f"{site_label(row)} (overall #{rank})")
+    for cat, top_df in top3_per_category.items():
+        for rank, (i, row) in enumerate(top_df.iterrows(), 1):
+            shortlist.setdefault(i, f"{site_label(row)} ({GOAL_SHORT[cat].lower()} #{rank})")
+
+    with st.container(border=True):
+        st.markdown('<span class="panel-anchor"></span><div class="section-title">Inspect a site</div>',
+                    unsafe_allow_html=True)
+        choice = st.selectbox("Shortlisted site", list(shortlist), format_func=shortlist.get,
+                              label_visibility='collapsed')
+        row = df_scored.loc[choice]
+        costs = estimate_total_cost(row, dc_size_mw=DC_SIZE_MW)
+
+        log_land = row.get('mean_property_value_3mi')
+        capacity = row.get('Plant nameplate capacity (MW)')
+        facts = {
+            'Plant': row.get('Plant name', ''),
+            'Fuel': str(row.get('Plant primary fuel category', '')).capitalize(),
+            'Capacity': f"{capacity:,.0f} MW" if pd.notna(capacity) else 'No data',
+            'Coordinates': f"{row['Plant latitude']:.3f}, {row['Plant longitude']:.3f}",
+            'Bus line capacity': f"{row.get('bus_sum_line_capacity_MW', 0):,.0f} MW",
+            'Lines at bus': f"{row.get('bus_num_incident_lines', 0):.0f}",
+            'Nearest renewable': f"{row.get('bus_dist_to_nearest_renewable_plant_km', 0):.1f} km",
+            'Electricity price': f"{row.get('Electricity_Cost_State_cents_per_kWh', 0):.2f}¢/kWh",
+            'Land value': (money(np.exp(log_land) * 0.404686) + '/acre') if pd.notna(log_land) else 'No data',
+        }
+        breakdown = {
+            'Land': costs['Land Acquisition'],
+            'Transmission': costs['Transmission Line Construction'],
+            'Substations': costs['Substation/Switchyard'],
+            'Electricity/yr': costs['Annual Electricity'],
+            'Water/yr': costs['Annual Water'],
+        }
+        delta = costs['10-Year TCO'] - median_tco
+        kv = lambda d: '<dl class="kv">' + ''.join(f'<dt>{k}</dt><dd>{v}</dd>' for k, v in d.items()) + '</dl>'
+        st.markdown(
+            '<div class="panels" style="margin-top:1rem">'
+            f'<div><div class="eyebrow">Site</div>{kv(facts)}</div>'
+            '<div><div class="eyebrow">Goal scores</div>'
+            + meters([(GOAL_SHORT[c], row[c + '_Score'], GOAL_COLORS[c]) for c in GOAL_COLORS])
+            + '<div class="eyebrow">Factors</div>'
+            + meters([(label, float(row.get(code, 0)) * 100, MUTED) for code, label in FACTORS])
+            + '</div>'
+            f'<div><div class="eyebrow">10-year cost</div>'
+            f'<div class="cost-total">{money(costs["10-Year TCO"])}</div>'
+            f'<div class="note" style="margin-bottom:1rem">{money(abs(delta))} '
+            f'{"below" if delta < 0 else "above"} the median site</div>'
+            f'{kv({k: money(v) for k, v in breakdown.items()})}</div>'
+            '</div>', unsafe_allow_html=True)
+
+    st.markdown(
+        '<p class="note" style="margin-top:1.5rem">Water scores use a synthetic placeholder dataset, so treat '
+        'them as illustrative. Electricity prices and outage figures are state averages. Costs are rough '
+        'estimates for a 2 GW facility at 85% utilization, with no discounting.</p>',
+        unsafe_allow_html=True)
+
+    export_cols = ['Plant county name', 'Plant name', 'Plant state abbreviation', 'Plant latitude',
+                   'Plant longitude', 'Lowest Cost_Score', 'Lowest Emissions_Score',
+                   'Highest Reliability_Score', 'Overall_Score', 'TCO']
+    export_df = df_scored.loc[list(shortlist), export_cols].rename(columns={'TCO': '10-Year TCO (USD)'})
     st.download_button(
-        label="Download Top Locations CSV",
-        data=csv,
-        file_name=f"Nexsite_top_locations_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-        mime="text/csv"
+        label="Download shortlist (CSV)",
+        data=export_df.to_csv(index=False),
+        file_name=f"nexsite_shortlist_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+        mime="text/csv",
     )
 
 if __name__ == "__main__":
